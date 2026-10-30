@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning de projet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  h1 { font-size: 33px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  .zoom { display: flex; gap: 6px; align-items: center; }
+  .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
+  .zoom button:hover { background: #eee; }
+  .zoom .niveau { font-size: 12px; color: #555; width: 40px; text-align: center; }
+  .gantt { flex: 1; display: flex; flex-direction: column; border: 1px solid #d5d5d5; min-height: 0; position: relative; }
+  .corps { flex: 1; min-height: 0; position: relative; }
+  .scroll { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; }
+  .scroll::-webkit-scrollbar { height: 9px; }
+  .scroll::-webkit-scrollbar-thumb { background: #b9b9d0; border-radius: 5px; }
+  .inner { position: relative; min-width: 100%; height: 100%; }
+
+  /* en-tête trimestres : dans le conteneur scrollable, collé en haut,
+     donc il suit le défilement horizontal de la timeline */
+  .entete-tl { display: flex; height: 44px; position: sticky; top: 0; z-index: 10; }
+  .h-g { width: 150px; flex: none; background: #1f1f38; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: sticky; left: 0; z-index: 11; }
+  .qcol { flex: 1; border-left: 1px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; line-height: 1.2; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+  .qcol:nth-child(2) { border-left: none; }
+
+  /* grille trimestrielle, derrière les lignes, sous l'en-tête */
+  .grid { position: absolute; left: 150px; right: 0; top: 44px; bottom: 9px; z-index: 0; }
+  .qsep { position: absolute; top: 0; bottom: 0; width: 1px; background: #ececf2; }
+  .qsep.q1 { background: #c4c4d4; }
+
+  .rowsbox { position: relative; z-index: 1; }
+  .row { display: flex; border-bottom: 1px solid #f4f4f4; }
+  .row.groupe-row { border-bottom: none; }
+  .cell-g { width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; padding-left: 8px; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }
+  .groupe-row .cell-g { justify-content: center; padding-left: 0; font-size: 12.5px; }
+  .cell-tl { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+  .groupe-row .cell-tl { display: flex; align-items: center; }
+  .bande { position: absolute; top: 25%; bottom: 25%; border-radius: 2px; }
+  .lot-row { cursor: pointer; }
+  .lot-row:hover .cell-tl { background: #f6f8ff; }
+  .barre { position: absolute; top: 50%; transform: translateY(-50%); height: 3.5px; border-radius: 2px; }
+  .alerte { position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 11px; font-weight: bold; z-index: 3; }
+  .lab { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }
+  .lab-inv { transform: translate(-100%, -50%); border-left: none; border-right: 2.5px solid; text-align: right; }
+  .lab.jaune { background: #f7e733; }
+  .lab.a-dater { font-style: italic; color: #777; }
+  .st-btn { font-size: 9px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }
+
+  .panneau { position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 12px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }
+  .panneau h3 { font-size: 14px; margin-bottom: 6px; }
+  .panneau table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  .panneau td, .panneau th { text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 11.5px; }
+  .panneau th { color: #666; font-weight: normal; font-size: 11px; }
+  .panneau .dep { color: #444; }
+  .fermer { float: right; cursor: pointer; color: #888; font-size: 16px; }
+
+  .pied { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: #333; }
+  .stats { border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 13px; border-radius: 4px; }
+  .stats .petit { font-size: 10.5px; color: #888; }
+  .legende span { display: inline-block; margin-right: 12px; }
+  .legende i { display: inline-block; width: 24px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .legende b { color: #e01414; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="titre">
+    <div style="width:220px"></div>
+    <h1>PLANNING DE PROJET</h1>
+    <div class="zoom">
+      <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
+      <span class="niveau" id="zniveau">1×</span>
+      <button id="zplus" title="zoomer">+</button>
+    </div>
+  </div>
+  <div class="gantt">
+    <div class="corps">
+      <div class="scroll" id="scroll">
+        <div class="inner" id="inner">
+          <div class="entete-tl"><div class="h-g">LOTS</div><div class="qcol" style="background:#1b2a6b"><span>T1</span><span>2026</span></div><div class="qcol" style="background:#2e7d32"><span>T2</span><span>2026</span></div><div class="qcol" style="background:#6a1b9a"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#b36b00"><span>T4</span><span>2026</span></div></div>
+          <div class="grid"><div class="qsep" style="left:24.658%"></div><div class="qsep" style="left:49.589%"></div><div class="qsep" style="left:74.795%"></div></div>
+          <div class="rowsbox" id="rows"></div>
+        </div>
+      </div>
+      <div id="panneau-host" style="position:absolute;inset:0;pointer-events:none;z-index:30"></div>
+    </div>
+  </div>
+  <div class="pied">
+    <div class="legende">
+      <span><i style="background:#00b4e6"></i>barre = période du lot</span>
+      <span style="background:#f7e733;padding:1px 6px;">surligné = champ Sélection renseigné</span>
+      <span><b>✚</b> impact fort (≥ 8 lots en aval)</span>
+      <span>▸ n : sous-tâches repliées, cliquer sur un lot pour les consulter</span>    </div>
+    <div class="stats"><b>0 lots</b> dont 0 datés<br>0 liens de dépendance<br><span class="petit">0 fins de barres estimées</span></div>
+  </div>
+</div>
+<script>
+/* ================================================================
+   DONNÉES DU PLANNING
+   Bloc à remplacer pour mettre à jour le fichier :
+   1. extraire le CSV du projet Asana (tâches : nom, début, fin,
+      section, colonnes personnalisées) ;
+   2. demander à l'assistant local de régénérer le bloc DATA ci-dessous
+      à partir du CSV, en respectant exactement la même structure.
+   Champs d'un lot :
+     id            identifiant (gid Asana ou numéro de ligne)
+     libelle       "numéro. nom du lot"
+     scope         catégorie affichée à gauche (regroupement)
+     debut         AAAA-MM-JJ (null si à dater)
+     fin           AAAA-MM-JJ (null = barre de 45 jours)
+     fin_estimee   true si la fin n'est pas une donnée réelle
+     selection     toute valeur = surlignage jaune
+     direction     direction porteuse (info)
+     materiel      "oui" / "non" (info)
+     dependances   liste des libellés des lots antécédents
+     impact        nombre de lots en aval (calculé)
+     sous_taches   [{nom, debut, fin}] (fins = dates réelles Asana,
+                   événements d'une journée : fin = début)
+   ================================================================ */
+const DATA = {
+ "titre": "PLANNING DE PROJET",
+ "projet_asana": "",
+ "date_generation": "2026-10-30",
+ "nb_lots": 0,
+ "nb_lots_dates": 0,
+ "nb_lots_fin_estimee": 0,
+ "nb_dependances": 0,
+ "scopes": [],
+ "lots": []
+};
+
+const parId = {};
+DATA.lots.forEach(l => parId[l.id] = l);
+
+/* ---------- zoom : la timeline seule, colonnes fixes ---------- */
+const scroll = document.getElementById('scroll');
+const inner = document.getElementById('inner');
+const zniveau = document.getElementById('zniveau');
+let zoom = 1;
+function appliquerZoom() {
+  inner.style.width = (zoom * 100) + '%';
+  zniveau.textContent = zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+}
+document.getElementById('zplus').addEventListener('click', () => { zoom = Math.min(zoom * 2, 16); appliquerZoom(); });
+document.getElementById('zmoins').addEventListener('click', () => {
+  zoom = zoom / 2 <= 1 ? 1 : zoom / 2; appliquerZoom();
+});
+scroll.addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const avant = inner.getBoundingClientRect().width;
+  zoom = Math.min(16, Math.max(1, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  appliquerZoom();
+  const apres = inner.getBoundingClientRect().width;
+  scroll.scrollLeft = scroll.scrollLeft * (apres / avant);
+}, { passive: false });
+
+let drag = null;
+scroll.addEventListener('mousedown', e => {
+  if (zoom <= 1) return;
+  drag = { x: e.clientX, s: scroll.scrollLeft };
+  scroll.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+});
+window.addEventListener('mouseup', () => { drag = null; scroll.style.cursor = ''; });
+
+/* ---------- sous-tâches (repliées par défaut) ---------- */
+const host = document.getElementById('panneau-host');
+const rows = document.getElementById('rows');
+function ouvrirPanneau(gid, ligneRef) {
+  host.innerHTML = '';
+  const lot = parId[gid];
+  if (!lot) return;
+  const st = (lot.sous_taches || []).map(s =>
+    `<tr><td>${s.nom}</td><td>${s.debut || ''}</td><td>${s.fin || ''}</td></tr>`
+  ).join('');
+  const deps = (lot.dependances || []).join(', ') || 'aucune';
+  const p = document.createElement('div');
+  p.className = 'panneau';
+  p.style.pointerEvents = 'auto';
+  p.style.top = Math.min(ligneRef.offsetTop + 14, 360) + 'px';
+  p.innerHTML =
+    `<span class="fermer" title="refermer">✕</span>` +
+    `<h3>${lot.libelle}</h3>` +
+    `<div class="dep"><b>Dépendances :</b> ${deps}</div>` +
+    `<table><tr><th>Sous-tâche</th><th>Début</th><th>Fin</th></tr>${st}</table>`;
+  p.querySelector('.fermer').addEventListener('click', () => host.innerHTML = '');
+  p.addEventListener('click', e => e.stopPropagation());
+  host.appendChild(p);
+}
+document.querySelectorAll('.lot-row').forEach(el => {
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    ouvrirPanneau(el.dataset.lot, el);
+  });
+});
+document.addEventListener('click', () => host.innerHTML = '');
+appliquerZoom();
+</script>
+</body>
+</html>

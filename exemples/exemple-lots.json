@@ -1,0 +1,1334 @@
+[
+ {
+  "gid": "EX001",
+  "label": "Lot 01.Plateforme applicative",
+  "scope": "Domaine A",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-04-29",
+  "end": "2026-07-04",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "01.Étude de faisabilité",
+    "debut": null,
+    "fin": "2026-05-10"
+   },
+   {
+    "nom": "01.Cadrage Archi",
+    "debut": "2026-05-10",
+    "fin": "2026-05-21"
+   },
+   {
+    "nom": "01.Mise en place",
+    "debut": null,
+    "fin": "2026-05-27"
+   },
+   {
+    "nom": "01.Cadrage Archi",
+    "debut": null,
+    "fin": "2026-05-30"
+   },
+   {
+    "nom": "01.Étude de faisabilité",
+    "debut": "2026-05-30",
+    "fin": "2026-06-10"
+   },
+   {
+    "nom": "01.Cadrage Archi",
+    "debut": "2026-06-10",
+    "fin": "2026-06-21"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX002",
+  "label": "Lot 02.Réseau d'entreprise",
+  "scope": "Domaine B",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-10-16",
+  "end": "2027-07-10",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "02.Prêt à l'usage",
+    "debut": "2026-10-16",
+    "fin": "2026-12-21"
+   },
+   {
+    "nom": "02.Recette",
+    "debut": "2026-12-21",
+    "fin": "2027-02-25"
+   },
+   {
+    "nom": "02.COMENG",
+    "debut": null,
+    "fin": "2027-04-09"
+   },
+   {
+    "nom": "02.Cadrage Archi",
+    "debut": null,
+    "fin": "2027-04-21"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX003",
+  "label": "Lot 03.Messagerie et collaboration",
+  "scope": "Domaine C",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-02-18",
+  "end": "2026-10-22",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "03.Mise en place",
+    "debut": null,
+    "fin": "2026-03-14"
+   },
+   {
+    "nom": "03.Cadrage Archi",
+    "debut": "2026-03-14",
+    "fin": "2026-04-18"
+   },
+   {
+    "nom": "03.Prêt à l'usage",
+    "debut": "2026-04-18",
+    "fin": "2026-05-23"
+   },
+   {
+    "nom": "03.Prêt à l'usage",
+    "debut": "2026-05-23",
+    "fin": "2026-06-27"
+   },
+   {
+    "nom": "03.Étude de faisabilité",
+    "debut": "2026-06-27",
+    "fin": "2026-08-01"
+   },
+   {
+    "nom": "03.Cadrage Archi",
+    "debut": "2026-08-01",
+    "fin": "2026-09-05"
+   },
+   {
+    "nom": "03.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-09-10"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX004",
+  "label": "Lot 04.Gestion des identités",
+  "scope": "Domaine D",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-04-14",
+  "end": "2027-11-22",
+  "fin_estimee": false,
+  "deps": [
+   "EX001",
+   "EX002"
+  ],
+  "sous_taches": [
+   {
+    "nom": "04.Étude de faisabilité",
+    "debut": "2027-04-14",
+    "fin": "2027-05-21"
+   },
+   {
+    "nom": "04.Recette",
+    "debut": "2027-05-21",
+    "fin": "2027-06-27"
+   },
+   {
+    "nom": "04.Recette",
+    "debut": null,
+    "fin": "2027-07-07"
+   },
+   {
+    "nom": "04.Mise en place",
+    "debut": "2027-07-07",
+    "fin": "2027-08-13"
+   },
+   {
+    "nom": "04.Étude de faisabilité",
+    "debut": "2027-08-13",
+    "fin": "2027-09-19"
+   },
+   {
+    "nom": "04.COMENG",
+    "debut": "2027-09-19",
+    "fin": "2027-10-26"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX005",
+  "label": "Lot 05.Sauvegarde et restauration",
+  "scope": "Domaine E",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-03-03",
+  "end": "2026-06-29",
+  "fin_estimee": false,
+  "deps": [
+   "EX003",
+   "EX002"
+  ],
+  "sous_taches": [
+   {
+    "nom": "05.Cadrage Archi",
+    "debut": null,
+    "fin": "2026-03-21"
+   },
+   {
+    "nom": "05.Recette",
+    "debut": null,
+    "fin": "2026-04-05"
+   },
+   {
+    "nom": "05.Livraison",
+    "debut": "2026-04-05",
+    "fin": "2026-04-24"
+   },
+   {
+    "nom": "05.Recette",
+    "debut": "2026-04-24",
+    "fin": "2026-05-13"
+   },
+   {
+    "nom": "05.COMENG",
+    "debut": null,
+    "fin": "2026-05-30"
+   },
+   {
+    "nom": "05.Mise en place",
+    "debut": null,
+    "fin": "2026-06-17"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX006",
+  "label": "Lot 06.Supervision et exploitation",
+  "scope": "Domaine F",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-05-26",
+  "end": "2026-12-02",
+  "fin_estimee": false,
+  "deps": [
+   "EX001"
+  ],
+  "sous_taches": [
+   {
+    "nom": "06.Étude de faisabilité",
+    "debut": "2026-05-26",
+    "fin": "2026-07-12"
+   },
+   {
+    "nom": "06.Prêt à l'usage",
+    "debut": "2026-07-12",
+    "fin": "2026-08-28"
+   },
+   {
+    "nom": "06.Mise en place",
+    "debut": null,
+    "fin": "2026-09-21"
+   },
+   {
+    "nom": "06.Mise en place",
+    "debut": "2026-09-21",
+    "fin": "2026-11-07"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX007",
+  "label": "Lot 07.Poste de travail",
+  "scope": "Domaine G",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-05-02",
+  "end": "2026-12-22",
+  "fin_estimee": false,
+  "deps": [
+   "EX003",
+   "EX006"
+  ],
+  "sous_taches": [
+   {
+    "nom": "07.COMENG",
+    "debut": "2026-05-02",
+    "fin": "2026-06-29"
+   },
+   {
+    "nom": "07.Livraison",
+    "debut": null,
+    "fin": "2026-08-14"
+   },
+   {
+    "nom": "07.Recette",
+    "debut": null,
+    "fin": "2026-09-15"
+   },
+   {
+    "nom": "07.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-11-12"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX008",
+  "label": "Lot 08.Bases de données",
+  "scope": "Domaine H",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-06-08",
+  "end": "2028-01-09",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "08.Prêt à l'usage",
+    "debut": null,
+    "fin": "2027-07-11"
+   },
+   {
+    "nom": "08.Cadrage Archi",
+    "debut": "2027-07-11",
+    "fin": "2027-08-15"
+   },
+   {
+    "nom": "08.Livraison",
+    "debut": null,
+    "fin": "2027-09-07"
+   },
+   {
+    "nom": "08.Prêt à l'usage",
+    "debut": "2027-09-07",
+    "fin": "2027-10-12"
+   },
+   {
+    "nom": "08.Étude de faisabilité",
+    "debut": null,
+    "fin": "2027-10-17"
+   },
+   {
+    "nom": "08.Cadrage Archi",
+    "debut": "2027-10-17",
+    "fin": "2027-11-21"
+   }
+  ],
+  "alias": [],
+  "terminee": true
+ },
+ {
+  "gid": "EX009",
+  "label": "Lot 09.Transferts de fichiers",
+  "scope": "Domaine I",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-05-06",
+  "end": "2027-11-22",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "09.Étude de faisabilité",
+    "debut": "2027-05-06",
+    "fin": "2027-06-03"
+   },
+   {
+    "nom": "09.Prêt à l'usage",
+    "debut": "2027-06-03",
+    "fin": "2027-07-01"
+   },
+   {
+    "nom": "09.Étude de faisabilité",
+    "debut": "2027-07-01",
+    "fin": "2027-07-29"
+   },
+   {
+    "nom": "09.Livraison",
+    "debut": "2027-07-29",
+    "fin": "2027-08-26"
+   },
+   {
+    "nom": "09.Recette",
+    "debut": "2027-08-26",
+    "fin": "2027-09-23"
+   },
+   {
+    "nom": "09.Mise en place",
+    "debut": "2027-09-23",
+    "fin": "2027-10-21"
+   },
+   {
+    "nom": "09.Étude de faisabilité",
+    "debut": null,
+    "fin": "2027-10-31"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX010",
+  "label": "Lot 10.Sécurité du périmètre",
+  "scope": "Domaine J",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-01-12",
+  "end": "2026-03-31",
+  "fin_estimee": false,
+  "deps": [
+   "EX001",
+   "EX004"
+  ],
+  "sous_taches": [
+   {
+    "nom": "10.Cadrage Archi",
+    "debut": "2026-01-12",
+    "fin": "2026-01-31"
+   },
+   {
+    "nom": "10.Cadrage Archi",
+    "debut": "2026-01-31",
+    "fin": "2026-02-19"
+   },
+   {
+    "nom": "10.COMENG",
+    "debut": "2026-02-19",
+    "fin": "2026-03-10"
+   },
+   {
+    "nom": "10.Étude de faisabilité",
+    "debut": "2026-03-10",
+    "fin": "2026-03-29"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX011",
+  "label": "Lot 11.Virtualisation",
+  "scope": "Domaine A",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-05-04",
+  "end": "2028-01-25",
+  "fin_estimee": false,
+  "deps": [
+   "EX002"
+  ],
+  "sous_taches": [
+   {
+    "nom": "11.Recette",
+    "debut": "2027-05-04",
+    "fin": "2027-07-09"
+   },
+   {
+    "nom": "11.Livraison",
+    "debut": "2027-07-09",
+    "fin": "2027-09-13"
+   },
+   {
+    "nom": "11.Prêt à l'usage",
+    "debut": "2027-09-13",
+    "fin": "2027-11-18"
+   },
+   {
+    "nom": "11.Recette",
+    "debut": "2027-11-18",
+    "fin": "2028-01-23"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX012",
+  "label": "Lot 12.Ordonnancement",
+  "scope": "Domaine B",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-12-18",
+  "end": "2027-09-08",
+  "fin_estimee": false,
+  "deps": [
+   "EX004",
+   "EX011"
+  ],
+  "sous_taches": [
+   {
+    "nom": "12.Mise en place",
+    "debut": "2026-12-18",
+    "fin": "2027-02-08"
+   },
+   {
+    "nom": "12.Livraison",
+    "debut": null,
+    "fin": "2027-03-09"
+   },
+   {
+    "nom": "12.Étude de faisabilité",
+    "debut": "2027-03-09",
+    "fin": "2027-04-30"
+   },
+   {
+    "nom": "12.Cadrage Archi",
+    "debut": "2027-04-30",
+    "fin": "2027-06-21"
+   },
+   {
+    "nom": "12.Prêt à l'usage",
+    "debut": "2027-06-21",
+    "fin": "2027-08-12"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX013",
+  "label": "Lot 13.Gestion des accès à distance",
+  "scope": "Domaine C",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-09-04",
+  "end": "2026-12-15",
+  "fin_estimee": false,
+  "deps": [
+   "EX008"
+  ],
+  "sous_taches": [
+   {
+    "nom": "13.Prêt à l'usage",
+    "debut": "2026-09-04",
+    "fin": "2026-09-24"
+   },
+   {
+    "nom": "13.Cadrage Archi",
+    "debut": null,
+    "fin": "2026-09-24"
+   },
+   {
+    "nom": "13.Livraison",
+    "debut": null,
+    "fin": "2026-10-08"
+   },
+   {
+    "nom": "13.COMENG",
+    "debut": "2026-10-08",
+    "fin": "2026-10-28"
+   },
+   {
+    "nom": "13.Recette",
+    "debut": "2026-10-28",
+    "fin": "2026-11-17"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX014",
+  "label": "Lot 14.Stockage objet",
+  "scope": "Domaine D",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-11-04",
+  "end": "2027-02-27",
+  "fin_estimee": false,
+  "deps": [
+   "EX010",
+   "EX012",
+   "EX009"
+  ],
+  "sous_taches": [
+   {
+    "nom": "14.Recette",
+    "debut": null,
+    "fin": "2026-11-05"
+   },
+   {
+    "nom": "14.Mise en place",
+    "debut": "2026-11-05",
+    "fin": "2026-12-03"
+   },
+   {
+    "nom": "14.Prêt à l'usage",
+    "debut": "2026-12-03",
+    "fin": "2026-12-31"
+   },
+   {
+    "nom": "14.Cadrage Archi",
+    "debut": "2026-12-31",
+    "fin": "2027-01-28"
+   }
+  ],
+  "alias": [],
+  "terminee": true
+ },
+ {
+  "gid": "EX015",
+  "label": "Lot 15.Conteneurs",
+  "scope": "Domaine E",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-03-15",
+  "end": "2026-11-02",
+  "fin_estimee": false,
+  "deps": [
+   "EX007",
+   "EX002"
+  ],
+  "sous_taches": [
+   {
+    "nom": "15.Mise en place",
+    "debut": "2026-03-15",
+    "fin": "2026-04-30"
+   },
+   {
+    "nom": "15.Mise en place",
+    "debut": null,
+    "fin": "2026-06-11"
+   },
+   {
+    "nom": "15.Mise en place",
+    "debut": "2026-06-11",
+    "fin": "2026-07-27"
+   },
+   {
+    "nom": "15.COMENG",
+    "debut": "2026-07-27",
+    "fin": "2026-09-11"
+   },
+   {
+    "nom": "15.Étude de faisabilité",
+    "debut": "2026-09-11",
+    "fin": "2026-10-27"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX016",
+  "label": "Lot 16.Automatisation des déploiements",
+  "scope": "Domaine F",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-11-08",
+  "end": "2027-05-04",
+  "fin_estimee": false,
+  "deps": [
+   "EX013"
+  ],
+  "sous_taches": [
+   {
+    "nom": "16.Cadrage Archi",
+    "debut": "2026-11-08",
+    "fin": "2026-12-22"
+   },
+   {
+    "nom": "16.Mise en place",
+    "debut": "2026-12-22",
+    "fin": "2027-02-04"
+   },
+   {
+    "nom": "16.Cadrage Archi",
+    "debut": "2027-02-04",
+    "fin": "2027-03-20"
+   },
+   {
+    "nom": "16.Mise en place",
+    "debut": null,
+    "fin": "2027-04-11"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX017",
+  "label": "Lot 17.Téléphonie",
+  "scope": "Domaine G",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-06-15",
+  "end": "2026-12-04",
+  "fin_estimee": false,
+  "deps": [
+   "EX010",
+   "EX016"
+  ],
+  "sous_taches": [
+   {
+    "nom": "17.Recette",
+    "debut": "2026-06-15",
+    "fin": "2026-07-28"
+   },
+   {
+    "nom": "17.COMENG",
+    "debut": "2026-07-28",
+    "fin": "2026-09-09"
+   },
+   {
+    "nom": "17.Cadrage Archi",
+    "debut": "2026-09-09",
+    "fin": "2026-10-22"
+   },
+   {
+    "nom": "17.Étude de faisabilité",
+    "debut": null,
+    "fin": "2026-10-28"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX018",
+  "label": "Lot 18.Supervision réseau",
+  "scope": "Domaine H",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-08-08",
+  "end": "2027-04-08",
+  "fin_estimee": false,
+  "deps": [
+   "EX009"
+  ],
+  "sous_taches": [
+   {
+    "nom": "18.COMENG",
+    "debut": "2026-08-08",
+    "fin": "2026-09-11"
+   },
+   {
+    "nom": "18.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-10-08"
+   },
+   {
+    "nom": "18.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-10-08"
+   },
+   {
+    "nom": "18.COMENG",
+    "debut": "2026-10-08",
+    "fin": "2026-11-11"
+   },
+   {
+    "nom": "18.Recette",
+    "debut": "2026-11-11",
+    "fin": "2026-12-15"
+   },
+   {
+    "nom": "18.Étude de faisabilité",
+    "debut": "2026-12-15",
+    "fin": "2027-01-18"
+   },
+   {
+    "nom": "18.Mise en place",
+    "debut": "2027-01-18",
+    "fin": "2027-02-21"
+   }
+  ],
+  "alias": [],
+  "terminee": true
+ },
+ {
+  "gid": "EX019",
+  "label": "Lot 19.Gestion des habilitations",
+  "scope": "Domaine I",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-06-06",
+  "end": "2026-12-22",
+  "fin_estimee": false,
+  "deps": [],
+  "sous_taches": [
+   {
+    "nom": "19.Mise en place",
+    "debut": "2026-06-06",
+    "fin": "2026-07-09"
+   },
+   {
+    "nom": "19.Livraison",
+    "debut": null,
+    "fin": "2026-07-28"
+   },
+   {
+    "nom": "19.COMENG",
+    "debut": "2026-07-28",
+    "fin": "2026-08-30"
+   },
+   {
+    "nom": "19.Prêt à l'usage",
+    "debut": "2026-08-30",
+    "fin": "2026-10-02"
+   },
+   {
+    "nom": "19.Cadrage Archi",
+    "debut": "2026-10-02",
+    "fin": "2026-11-04"
+   },
+   {
+    "nom": "19.Étude de faisabilité",
+    "debut": "2026-11-04",
+    "fin": "2026-12-07"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX020",
+  "label": "Lot 20.Portail intranet",
+  "scope": "Domaine J",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-02-25",
+  "end": "2027-10-01",
+  "fin_estimee": false,
+  "deps": [
+   "EX008",
+   "EX006"
+  ],
+  "sous_taches": [
+   {
+    "nom": "20.Livraison",
+    "debut": null,
+    "fin": "2027-03-18"
+   },
+   {
+    "nom": "20.Prêt à l'usage",
+    "debut": "2027-03-18",
+    "fin": "2027-04-30"
+   },
+   {
+    "nom": "20.Prêt à l'usage",
+    "debut": "2027-04-30",
+    "fin": "2027-06-12"
+   },
+   {
+    "nom": "20.Recette",
+    "debut": "2027-06-12",
+    "fin": "2027-07-25"
+   },
+   {
+    "nom": "20.COMENG",
+    "debut": null,
+    "fin": "2027-07-31"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX021",
+  "label": "Lot 21.Catalogue de services",
+  "scope": "Domaine A",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-08-20",
+  "end": "2026-12-09",
+  "fin_estimee": false,
+  "deps": [
+   "EX015",
+   "EX012"
+  ],
+  "sous_taches": [
+   {
+    "nom": "21.Prêt à l'usage",
+    "debut": "2026-08-20",
+    "fin": "2026-09-07"
+   },
+   {
+    "nom": "21.Étude de faisabilité",
+    "debut": null,
+    "fin": "2026-09-13"
+   },
+   {
+    "nom": "21.Livraison",
+    "debut": null,
+    "fin": "2026-09-15"
+   },
+   {
+    "nom": "21.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-10-01"
+   },
+   {
+    "nom": "21.Livraison",
+    "debut": "2026-10-01",
+    "fin": "2026-10-19"
+   },
+   {
+    "nom": "21.Prêt à l'usage",
+    "debut": "2026-10-19",
+    "fin": "2026-11-06"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX022",
+  "label": "Lot 22.Continuité d'activité",
+  "scope": "Domaine B",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-09-29",
+  "end": "2027-01-12",
+  "fin_estimee": false,
+  "deps": [
+   "EX009"
+  ],
+  "sous_taches": [
+   {
+    "nom": "22.Cadrage Archi",
+    "debut": "2026-09-29",
+    "fin": "2026-10-25"
+   },
+   {
+    "nom": "22.COMENG",
+    "debut": "2026-10-25",
+    "fin": "2026-11-20"
+   },
+   {
+    "nom": "22.COMENG",
+    "debut": "2026-11-20",
+    "fin": "2026-12-16"
+   },
+   {
+    "nom": "22.Mise en place",
+    "debut": null,
+    "fin": "2027-01-03"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX023",
+  "label": "Lot 23.Observabilité",
+  "scope": "Domaine C",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-01-06",
+  "end": "2026-07-18",
+  "fin_estimee": false,
+  "deps": [
+   "EX018",
+   "EX022",
+   "EX007"
+  ],
+  "sous_taches": [
+   {
+    "nom": "23.Livraison",
+    "debut": null,
+    "fin": "2026-01-27"
+   },
+   {
+    "nom": "23.Mise en place",
+    "debut": null,
+    "fin": "2026-02-03"
+   },
+   {
+    "nom": "23.Recette",
+    "debut": "2026-02-03",
+    "fin": "2026-03-07"
+   },
+   {
+    "nom": "23.Mise en place",
+    "debut": null,
+    "fin": "2026-04-02"
+   },
+   {
+    "nom": "23.COMENG",
+    "debut": "2026-04-02",
+    "fin": "2026-05-04"
+   },
+   {
+    "nom": "23.COMENG",
+    "debut": "2026-05-04",
+    "fin": "2026-06-05"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX024",
+  "label": "Lot 24.Certificats et PKI",
+  "scope": "Domaine D",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-07-02",
+  "end": "2027-02-04",
+  "fin_estimee": false,
+  "deps": [
+   "EX013"
+  ],
+  "sous_taches": [
+   {
+    "nom": "24.COMENG",
+    "debut": null,
+    "fin": "2026-07-29"
+   },
+   {
+    "nom": "24.Prêt à l'usage",
+    "debut": "2026-07-29",
+    "fin": "2026-09-21"
+   },
+   {
+    "nom": "24.Recette",
+    "debut": null,
+    "fin": "2026-10-19"
+   },
+   {
+    "nom": "24.Livraison",
+    "debut": "2026-10-19",
+    "fin": "2026-12-12"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX025",
+  "label": "Lot 25.Gestion des flux",
+  "scope": "Domaine E",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2026-10-22",
+  "end": "2027-05-01",
+  "fin_estimee": false,
+  "deps": [
+   "EX020"
+  ],
+  "sous_taches": [
+   {
+    "nom": "25.Cadrage Archi",
+    "debut": "2026-10-22",
+    "fin": "2026-11-22"
+   },
+   {
+    "nom": "25.Prêt à l'usage",
+    "debut": null,
+    "fin": "2026-12-11"
+   },
+   {
+    "nom": "25.Étude de faisabilité",
+    "debut": "2026-12-11",
+    "fin": "2027-01-11"
+   },
+   {
+    "nom": "25.Étude de faisabilité",
+    "debut": null,
+    "fin": "2027-01-26"
+   },
+   {
+    "nom": "25.Livraison",
+    "debut": "2027-01-26",
+    "fin": "2027-02-26"
+   },
+   {
+    "nom": "25.Prêt à l'usage",
+    "debut": null,
+    "fin": "2027-03-24"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX026",
+  "label": "Lot 26.Impression",
+  "scope": "Domaine F",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-02-02",
+  "end": "2027-08-07",
+  "fin_estimee": false,
+  "deps": [
+   "EX005"
+  ],
+  "sous_taches": [
+   {
+    "nom": "26.Prêt à l'usage",
+    "debut": "2027-02-02",
+    "fin": "2027-03-20"
+   },
+   {
+    "nom": "26.Cadrage Archi",
+    "debut": "2027-03-20",
+    "fin": "2027-05-05"
+   },
+   {
+    "nom": "26.Étude de faisabilité",
+    "debut": null,
+    "fin": "2027-06-18"
+   },
+   {
+    "nom": "26.Mise en place",
+    "debut": "2027-06-18",
+    "fin": "2027-08-03"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX027",
+  "label": "Lot 27.Fédération d'identité",
+  "scope": "Domaine G",
+  "selection": null,
+  "direction": null,
+  "materiel": "non",
+  "start": "2027-04-25",
+  "end": "2027-12-11",
+  "fin_estimee": false,
+  "deps": [
+   "EX018"
+  ],
+  "sous_taches": [
+   {
+    "nom": "27.Prêt à l'usage",
+    "debut": "2027-04-25",
+    "fin": "2027-06-02"
+   },
+   {
+    "nom": "27.Mise en place",
+    "debut": "2027-06-02",
+    "fin": "2027-07-10"
+   },
+   {
+    "nom": "27.Mise en place",
+    "debut": "2027-07-10",
+    "fin": "2027-08-17"
+   },
+   {
+    "nom": "27.Mise en place",
+    "debut": "2027-08-17",
+    "fin": "2027-09-24"
+   },
+   {
+    "nom": "27.Étude de faisabilité",
+    "debut": "2027-09-24",
+    "fin": "2027-11-01"
+   },
+   {
+    "nom": "27.Livraison",
+    "debut": "2027-11-01",
+    "fin": "2027-12-09"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX028",
+  "label": "Lot 28.Pare-feu nouvelle génération",
+  "scope": "Domaine H",
+  "selection": null,
+  "direction": null,
+  "materiel": "oui",
+  "start": "2027-06-22",
+  "end": "2027-12-23",
+  "fin_estimee": false,
+  "deps": [
+   "EX009"
+  ],
+  "sous_taches": [
+   {
+    "nom": "28.Cadrage Archi",
+    "debut": "2027-06-22",
+    "fin": "2027-07-18"
+   },
+   {
+    "nom": "28.Étude de faisabilité",
+    "debut": null,
+    "fin": "2027-07-28"
+   },
+   {
+    "nom": "28.Mise en place",
+    "debut": null,
+    "fin": "2027-08-01"
+   },
+   {
+    "nom": "28.Étude de faisabilité",
+    "debut": "2027-08-01",
+    "fin": "2027-08-27"
+   },
+   {
+    "nom": "28.Étude de faisabilité",
+    "debut": "2027-08-27",
+    "fin": "2027-09-22"
+   },
+   {
+    "nom": "28.Cadrage Archi",
+    "debut": "2027-09-22",
+    "fin": "2027-10-18"
+   },
+   {
+    "nom": "28.COMENG",
+    "debut": "2027-10-18",
+    "fin": "2027-11-13"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ },
+ {
+  "gid": "EX029",
+  "label": "Lot 29.Gestion des incidents",
+  "scope": "Domaine I",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "non",
+  "start": "2027-02-07",
+  "end": "2027-11-25",
+  "fin_estimee": false,
+  "deps": [
+   "EX023",
+   "EX001"
+  ],
+  "sous_taches": [
+   {
+    "nom": "29.Livraison",
+    "debut": null,
+    "fin": "2027-03-01"
+   },
+   {
+    "nom": "29.COMENG",
+    "debut": "2027-03-01",
+    "fin": "2027-04-11"
+   },
+   {
+    "nom": "29.Prêt à l'usage",
+    "debut": "2027-04-11",
+    "fin": "2027-05-22"
+   },
+   {
+    "nom": "29.Prêt à l'usage",
+    "debut": "2027-05-22",
+    "fin": "2027-07-02"
+   },
+   {
+    "nom": "29.Recette",
+    "debut": "2027-07-02",
+    "fin": "2027-08-12"
+   },
+   {
+    "nom": "29.Prêt à l'usage",
+    "debut": "2027-08-12",
+    "fin": "2027-09-22"
+   },
+   {
+    "nom": "29.Étude de faisabilité",
+    "debut": "2027-09-22",
+    "fin": "2027-11-02"
+   }
+  ],
+  "alias": [],
+  "terminee": true
+ },
+ {
+  "gid": "EX030",
+  "label": "Lot 30.Référentiel de données",
+  "scope": "Domaine J",
+  "selection": "Priorité haute",
+  "direction": null,
+  "materiel": "non",
+  "start": "2026-12-15",
+  "end": "2027-08-03",
+  "fin_estimee": false,
+  "deps": [
+   "EX013"
+  ],
+  "sous_taches": [
+   {
+    "nom": "30.Prêt à l'usage",
+    "debut": "2026-12-15",
+    "fin": "2027-01-30"
+   },
+   {
+    "nom": "30.Étude de faisabilité",
+    "debut": "2027-01-30",
+    "fin": "2027-03-17"
+   },
+   {
+    "nom": "30.Mise en place",
+    "debut": null,
+    "fin": "2027-04-11"
+   },
+   {
+    "nom": "30.Mise en place",
+    "debut": "2027-04-11",
+    "fin": "2027-05-27"
+   },
+   {
+    "nom": "30.Cadrage Archi",
+    "debut": null,
+    "fin": "2027-06-23"
+   }
+  ],
+  "alias": [],
+  "terminee": false
+ }
+]

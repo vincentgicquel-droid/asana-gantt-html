@@ -1,0 +1,9 @@
+# données réelles (ne jamais versionner)
+lots-*.json
+lots.json
+planning-*.html
+!exemples/planning-*.html
+archives/
+export-*.csv
+__pycache__/
+*.pyc

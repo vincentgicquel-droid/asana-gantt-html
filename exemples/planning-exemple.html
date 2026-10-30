@@ -1,0 +1,1551 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning de projet</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  h1 { font-size: 33px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  .zoom { display: flex; gap: 6px; align-items: center; }
+  .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
+  .zoom button:hover { background: #eee; }
+  .zoom .niveau { font-size: 12px; color: #555; width: 40px; text-align: center; }
+  .gantt { flex: 1; display: flex; flex-direction: column; border: 1px solid #d5d5d5; min-height: 0; position: relative; }
+  .corps { flex: 1; min-height: 0; position: relative; }
+  .scroll { position: absolute; inset: 0; overflow-x: auto; overflow-y: hidden; }
+  .scroll::-webkit-scrollbar { height: 9px; }
+  .scroll::-webkit-scrollbar-thumb { background: #b9b9d0; border-radius: 5px; }
+  .inner { position: relative; min-width: 100%; height: 100%; }
+
+  /* en-tête trimestres : dans le conteneur scrollable, collé en haut,
+     donc il suit le défilement horizontal de la timeline */
+  .entete-tl { display: flex; height: 44px; position: sticky; top: 0; z-index: 10; }
+  .h-g { width: 150px; flex: none; background: #1f1f38; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: sticky; left: 0; z-index: 11; }
+  .qcol { flex: 1; border-left: 1px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; line-height: 1.2; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+  .qcol:nth-child(2) { border-left: none; }
+
+  /* grille trimestrielle, derrière les lignes, sous l'en-tête */
+  .grid { position: absolute; left: 150px; right: 0; top: 44px; bottom: 9px; z-index: 0; }
+  .qsep { position: absolute; top: 0; bottom: 0; width: 1px; background: #ececf2; }
+  .qsep.q1 { background: #c4c4d4; }
+
+  .rowsbox { position: relative; z-index: 1; }
+  .row { display: flex; border-bottom: 1px solid #f4f4f4; }
+  .row.groupe-row { border-bottom: none; }
+  .cell-g { width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; padding-left: 8px; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }
+  .groupe-row .cell-g { justify-content: center; padding-left: 0; font-size: 12.5px; }
+  .cell-tl { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+  .groupe-row .cell-tl { display: flex; align-items: center; }
+  .bande { position: absolute; top: 25%; bottom: 25%; border-radius: 2px; }
+  .lot-row { cursor: pointer; }
+  .lot-row:hover .cell-tl { background: #f6f8ff; }
+  .barre { position: absolute; top: 50%; transform: translateY(-50%); height: 3.5px; border-radius: 2px; }
+  .alerte { position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 11px; font-weight: bold; z-index: 3; }
+  .lab { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }
+  .lab-inv { transform: translate(-100%, -50%); border-left: none; border-right: 2.5px solid; text-align: right; }
+  .lab.jaune { background: #f7e733; }
+  .lab.a-dater { font-style: italic; color: #777; }
+  .st-btn { font-size: 9px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }
+
+  .panneau { position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 12px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }
+  .panneau h3 { font-size: 14px; margin-bottom: 6px; }
+  .panneau table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  .panneau td, .panneau th { text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 11.5px; }
+  .panneau th { color: #666; font-weight: normal; font-size: 11px; }
+  .panneau .dep { color: #444; }
+  .fermer { float: right; cursor: pointer; color: #888; font-size: 16px; }
+
+  .pied { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: #333; }
+  .stats { border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 13px; border-radius: 4px; }
+  .stats .petit { font-size: 10.5px; color: #888; }
+  .legende span { display: inline-block; margin-right: 12px; }
+  .legende i { display: inline-block; width: 24px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .legende b { color: #e01414; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="titre">
+    <div style="width:220px"></div>
+    <h1>PLANNING EXEMPLE : 10 DOMAINES</h1>
+    <div class="zoom">
+      <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
+      <span class="niveau" id="zniveau">1×</span>
+      <button id="zplus" title="zoomer">+</button>
+    </div>
+  </div>
+  <div class="gantt">
+    <div class="corps">
+      <div class="scroll" id="scroll">
+        <div class="inner" id="inner">
+          <div class="entete-tl"><div class="h-g">LOTS</div><div class="qcol" style="background:#1b2a6b"><span>T1</span><span>2026</span></div><div class="qcol" style="background:#2e7d32"><span>T2</span><span>2026</span></div><div class="qcol" style="background:#6a1b9a"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#b36b00"><span>T4</span><span>2026</span></div><div class="qcol" style="background:#00838f"><span>T1</span><span>2027</span></div><div class="qcol" style="background:#ad1457"><span>T2</span><span>2027</span></div><div class="qcol" style="background:#37474f"><span>T3</span><span>2027</span></div><div class="qcol" style="background:#5c6bc0"><span>T4</span><span>2027</span></div><div class="qcol" style="background:#1b2a6b"><span>T1</span><span>2028</span></div></div>
+          <div class="grid"><div class="qsep" style="left:10.962%"></div><div class="qsep" style="left:22.046%"></div><div class="qsep" style="left:33.252%"></div><div class="qsep q1" style="left:44.458%"></div><div class="qsep" style="left:55.42%"></div><div class="qsep" style="left:66.504%"></div><div class="qsep" style="left:77.71%"></div><div class="qsep q1" style="left:88.916%"></div></div>
+          <div class="rowsbox" id="rows"><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#5b3fa8;font-size:12.5px" title="Domaine A">Domaine A</div><div class="cell-tl"><span class="bande" style="background:#5b3fa8;left:10.962%;width:88.916%"></span></div></div><div class="row lot-row" data-lot="EX001" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:14.373%;width:8.039%;background:#5b3fa8"></span><span class="lab" style="left:22.712%;border-color:#5b3fa8"> Lot 01.Plateforme applicative<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX021" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:28.136%;width:13.520999999999997%;background:#5b3fa8"></span><span class="lab" style="left:41.956999999999994%;border-color:#5b3fa8"> Lot 21.Catalogue de services<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX011" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:59.44%;width:32.399%;background:#5b3fa8"></span><span class="lab lab-inv" style="left:59.14%;border-color:#5b3fa8"> Lot 11.Virtualisation<span class="st-btn">▸ 4</span></span></div></div><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#1a7fd4;font-size:12.5px" title="Domaine B">Domaine B</div><div class="cell-tl"><span class="bande" style="background:#1a7fd4;left:22.046%;width:55.541999999999994%"></span></div></div><div class="row lot-row" data-lot="EX022" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:33.009%;width:12.789000000000001%;background:#1a7fd4"></span><span class="lab jaune" style="left:46.098%;border-color:#1a7fd4"> Lot 22.Continuité d'activité<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX002" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:35.079%;width:32.520999999999994%;background:#1a7fd4"></span><span class="lab" style="left:67.89999999999999%;border-color:#1a7fd4"> Lot 02.Réseau d'entreprise<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX012" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:42.753%;width:32.156000000000006%;background:#1a7fd4"></span><span class="lab jaune" style="left:75.209%;border-color:#1a7fd4"> Lot 12.Ordonnancement<span class="st-btn">▸ 5</span></span></div></div><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#00838f;font-size:12.5px" title="Domaine C">Domaine C</div><div class="cell-tl"><span class="bande" style="background:#00838f;left:0.0%;width:44.336%"></span></div></div><div class="row lot-row" data-lot="EX023" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:0.609%;width:23.508000000000003%;background:#00838f"></span><span class="lab jaune" style="left:24.417%;border-color:#00838f"> Lot 23.Observabilité<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX003" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:5.847%;width:29.963%;background:#00838f"></span><span class="lab" style="left:36.11%;border-color:#00838f"> Lot 03.Messagerie et collaboration<span class="st-btn">▸ 7</span></span></div></div><div class="row lot-row" data-lot="EX013" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:29.963%;width:12.424%;background:#00838f"></span><span class="lab" style="left:42.687%;border-color:#00838f"> Lot 13.Gestion des accès à distance<span class="st-btn">▸ 5</span></span></div></div><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#2e7d32;font-size:12.5px" title="Domaine D">Domaine D</div><div class="cell-tl"><span class="bande" style="background:#2e7d32;left:22.046%;width:66.74799999999999%"></span></div></div><div class="row lot-row" data-lot="EX024" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:22.168%;width:26.430999999999997%;background:#2e7d32"></span><span class="lab" style="left:48.898999999999994%;border-color:#2e7d32"> Lot 24.Certificats et PKI<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX014" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:37.393%;width:14.008000000000003%;background:#2e7d32"></span><span class="lab jaune" style="left:51.701%;border-color:#2e7d32"> Lot 14.Stockage objet<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX004" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:57.004%;width:27.04%;background:#2e7d32"></span><span class="lab lab-inv" style="left:56.704%;border-color:#2e7d32"> Lot 04.Gestion des identités<span class="st-btn">▸ 6</span></span></div></div><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#9e9d24;font-size:12.5px" title="Domaine E">Domaine E</div><div class="cell-tl"><span class="bande" style="background:#9e9d24;left:0.0%;width:66.382%"></span></div></div><div class="row lot-row" data-lot="EX005" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:7.43%;width:14.373000000000001%;background:#9e9d24"></span><span class="lab" style="left:22.103%;border-color:#9e9d24"> Lot 05.Sauvegarde et restauration<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX015" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:8.892%;width:28.258%;background:#9e9d24"></span><span class="lab" style="left:37.449999999999996%;border-color:#9e9d24"> Lot 15.Conteneurs<span class="st-btn">▸ 5</span></span></div></div><div class="row lot-row" data-lot="EX025" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:35.81%;width:23.263999999999996%;background:#9e9d24"></span><span class="lab" style="left:59.373999999999995%;border-color:#9e9d24"> Lot 25.Gestion des flux<span class="st-btn">▸ 6</span></span></div></div><div class="row groupe-row" style="height:27px"><div class="cell-g" style="background:#b36b00;font-size:12.5px" title="Domaine F">Domaine F</div><div class="cell-tl"><span class="bande" style="background:#b36b00;left:10.962%;width:66.62599999999999%"></span></div></div><div class="row lot-row" data-lot="EX006" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:17.661%;width:23.143%;background:#b36b00"></span><span class="lab" style="left:41.104%;border-color:#b36b00"> Lot 06.Supervision et exploitation<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX016" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:37.881%;width:21.558999999999997%;background:#b36b00"></span><span class="lab" style="left:59.739999999999995%;border-color:#b36b00"> Lot 16.Automatisation des déploiements<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX026" style="height:21px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:48.356%;width:22.654999999999994%;background:#b36b00"></span><span class="lab" style="left:71.31099999999999%;border-color:#b36b00"> Lot 26.Impression<span class="st-btn">▸ 4</span></span></div></div><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#ad1457;font-size:12.5px" title="Domaine G">Domaine G</div><div class="cell-tl"><span class="bande" style="background:#ad1457;left:10.962%;width:77.832%"></span></div></div><div class="row lot-row" data-lot="EX007" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:14.738%;width:28.502000000000002%;background:#ad1457"></span><span class="lab jaune" style="left:43.54%;border-color:#ad1457"> Lot 07.Poste de travail<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX017" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:20.097%;width:20.951%;background:#ad1457"></span><span class="lab" style="left:41.348%;border-color:#ad1457"> Lot 17.Téléphonie<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX027" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:58.343%;width:28.015%;background:#ad1457"></span><span class="lab lab-inv" style="left:58.043000000000006%;border-color:#ad1457"> Lot 27.Fédération d'identité<span class="st-btn">▸ 6</span></span></div></div><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#6a1b9a;font-size:12.5px" title="Domaine H">Domaine H</div><div class="cell-tl"><span class="bande" style="background:#6a1b9a;left:22.046%;width:77.832%"></span></div></div><div class="row lot-row" data-lot="EX018" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:26.675%;width:29.598000000000003%;background:#6a1b9a"></span><span class="lab" style="left:56.573%;border-color:#6a1b9a"> Lot 18.Supervision réseau<span class="st-btn">▸ 7</span></span></div></div><div class="row lot-row" data-lot="EX008" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:63.703%;width:26.186999999999998%;background:#6a1b9a"></span><span class="lab lab-inv" style="left:63.403000000000006%;border-color:#6a1b9a"> Lot 08.Bases de données<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX028" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:65.408%;width:22.411999999999992%;background:#6a1b9a"></span><span class="lab lab-inv" style="left:65.108%;border-color:#6a1b9a"> Lot 28.Pare-feu nouvelle génération<span class="st-btn">▸ 7</span></span></div></div><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#455a64;font-size:12.5px" title="Domaine I">Domaine I</div><div class="cell-tl"><span class="bande" style="background:#455a64;left:10.962%;width:77.832%"></span></div></div><div class="row lot-row" data-lot="EX019" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:19.001%;width:24.239%;background:#455a64"></span><span class="lab" style="left:43.54%;border-color:#455a64"> Lot 19.Gestion des habilitations<span class="st-btn">▸ 6</span></span></div></div><div class="row lot-row" data-lot="EX029" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:48.965%;width:35.444%;background:#455a64"></span><span class="lab jaune lab-inv" style="left:48.665000000000006%;border-color:#455a64"> Lot 29.Gestion des incidents<span class="st-btn">▸ 7</span></span></div></div><div class="row lot-row" data-lot="EX009" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:59.683%;width:24.360999999999997%;background:#455a64"></span><span class="lab jaune lab-inv" style="left:59.383%;border-color:#455a64"> Lot 09.Transferts de fichiers<span class="st-btn">▸ 7</span></span></div></div><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#37474f;font-size:12.5px" title="Domaine J">Domaine J</div><div class="cell-tl"><span class="bande" style="background:#37474f;left:0.0%;width:88.794%"></span></div></div><div class="row lot-row" data-lot="EX010" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:1.34%;width:9.5%;background:#37474f"></span><span class="lab" style="left:11.14%;border-color:#37474f"> Lot 10.Sécurité du périmètre<span class="st-btn">▸ 4</span></span></div></div><div class="row lot-row" data-lot="EX030" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:42.387%;width:28.137%;background:#37474f"></span><span class="lab jaune" style="left:70.824%;border-color:#37474f"> Lot 30.Référentiel de données<span class="st-btn">▸ 5</span></span></div></div><div class="row lot-row" data-lot="EX020" style="height:20px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:51.157%;width:26.552999999999997%;background:#37474f"></span><span class="lab" style="left:78.00999999999999%;border-color:#37474f"> Lot 20.Portail intranet<span class="st-btn">▸ 5</span></span></div></div></div>
+        </div>
+      </div>
+      <div id="panneau-host" style="position:absolute;inset:0;pointer-events:none;z-index:30"></div>
+    </div>
+  </div>
+  <div class="pied">
+    <div class="legende">
+      <span><i style="background:#00b4e6"></i>barre = période du lot</span>
+      <span style="background:#f7e733;padding:1px 6px;">surligné = champ Sélection renseigné</span>
+      <span><b>✚</b> impact fort (≥ 8 lots en aval)</span>
+      <span>▸ n : sous-tâches repliées, cliquer sur un lot pour les consulter</span>    </div>
+    <div class="stats"><b>30 lots</b> dont 30 datés<br>38 liens de dépendance<br><span class="petit">0 fins de barres estimées</span></div>
+  </div>
+</div>
+<script>
+/* ================================================================
+   DONNÉES DU PLANNING
+   Bloc à remplacer pour mettre à jour le fichier :
+   1. extraire le CSV du projet Asana (tâches : nom, début, fin,
+      section, colonnes personnalisées) ;
+   2. demander à l'assistant local de régénérer le bloc DATA ci-dessous
+      à partir du CSV, en respectant exactement la même structure.
+   Champs d'un lot :
+     id            identifiant (gid Asana ou numéro de ligne)
+     libelle       "numéro. nom du lot"
+     scope         catégorie affichée à gauche (regroupement)
+     debut         AAAA-MM-JJ (null si à dater)
+     fin           AAAA-MM-JJ (null = barre de 45 jours)
+     fin_estimee   true si la fin n'est pas une donnée réelle
+     selection     toute valeur = surlignage jaune
+     direction     direction porteuse (info)
+     materiel      "oui" / "non" (info)
+     dependances   liste des libellés des lots antécédents
+     impact        nombre de lots en aval (calculé)
+     sous_taches   [{nom, debut, fin}] (fins = dates réelles Asana,
+                   événements d'une journée : fin = début)
+   ================================================================ */
+const DATA = {
+ "titre": "PLANNING EXEMPLE : 10 DOMAINES",
+ "projet_asana": "Projet d'exemple",
+ "date_generation": "2026-10-30",
+ "nb_lots": 30,
+ "nb_lots_dates": 30,
+ "nb_lots_fin_estimee": 0,
+ "nb_dependances": 38,
+ "scopes": [
+  "Domaine A",
+  "Domaine B",
+  "Domaine C",
+  "Domaine D",
+  "Domaine E",
+  "Domaine F",
+  "Domaine G",
+  "Domaine H",
+  "Domaine I",
+  "Domaine J"
+ ],
+ "lots": [
+  {
+   "id": "EX001",
+   "libelle": "Lot 01.Plateforme applicative",
+   "scope": "Domaine A",
+   "debut": "2026-04-29",
+   "fin": "2026-07-04",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [],
+   "impact": 4,
+   "sous_taches": [
+    {
+     "nom": "01.Étude de faisabilité",
+     "debut": null,
+     "fin": "2026-05-10"
+    },
+    {
+     "nom": "01.Cadrage Archi",
+     "debut": "2026-05-10",
+     "fin": "2026-05-21"
+    },
+    {
+     "nom": "01.Mise en place",
+     "debut": null,
+     "fin": "2026-05-27"
+    },
+    {
+     "nom": "01.Cadrage Archi",
+     "debut": null,
+     "fin": "2026-05-30"
+    },
+    {
+     "nom": "01.Étude de faisabilité",
+     "debut": "2026-05-30",
+     "fin": "2026-06-10"
+    },
+    {
+     "nom": "01.Cadrage Archi",
+     "debut": "2026-06-10",
+     "fin": "2026-06-21"
+    }
+   ]
+  },
+  {
+   "id": "EX002",
+   "libelle": "Lot 02.Réseau d'entreprise",
+   "scope": "Domaine B",
+   "debut": "2026-10-16",
+   "fin": "2027-07-10",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [],
+   "impact": 4,
+   "sous_taches": [
+    {
+     "nom": "02.Prêt à l'usage",
+     "debut": "2026-10-16",
+     "fin": "2026-12-21"
+    },
+    {
+     "nom": "02.Recette",
+     "debut": "2026-12-21",
+     "fin": "2027-02-25"
+    },
+    {
+     "nom": "02.COMENG",
+     "debut": null,
+     "fin": "2027-04-09"
+    },
+    {
+     "nom": "02.Cadrage Archi",
+     "debut": null,
+     "fin": "2027-04-21"
+    }
+   ]
+  },
+  {
+   "id": "EX003",
+   "libelle": "Lot 03.Messagerie et collaboration",
+   "scope": "Domaine C",
+   "debut": "2026-02-18",
+   "fin": "2026-10-22",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "03.Mise en place",
+     "debut": null,
+     "fin": "2026-03-14"
+    },
+    {
+     "nom": "03.Cadrage Archi",
+     "debut": "2026-03-14",
+     "fin": "2026-04-18"
+    },
+    {
+     "nom": "03.Prêt à l'usage",
+     "debut": "2026-04-18",
+     "fin": "2026-05-23"
+    },
+    {
+     "nom": "03.Prêt à l'usage",
+     "debut": "2026-05-23",
+     "fin": "2026-06-27"
+    },
+    {
+     "nom": "03.Étude de faisabilité",
+     "debut": "2026-06-27",
+     "fin": "2026-08-01"
+    },
+    {
+     "nom": "03.Cadrage Archi",
+     "debut": "2026-08-01",
+     "fin": "2026-09-05"
+    },
+    {
+     "nom": "03.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-09-10"
+    }
+   ]
+  },
+  {
+   "id": "EX004",
+   "libelle": "Lot 04.Gestion des identités",
+   "scope": "Domaine D",
+   "debut": "2027-04-14",
+   "fin": "2027-11-22",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 01.Plateforme applicative",
+    "Lot 02.Réseau d'entreprise"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "04.Étude de faisabilité",
+     "debut": "2027-04-14",
+     "fin": "2027-05-21"
+    },
+    {
+     "nom": "04.Recette",
+     "debut": "2027-05-21",
+     "fin": "2027-06-27"
+    },
+    {
+     "nom": "04.Recette",
+     "debut": null,
+     "fin": "2027-07-07"
+    },
+    {
+     "nom": "04.Mise en place",
+     "debut": "2027-07-07",
+     "fin": "2027-08-13"
+    },
+    {
+     "nom": "04.Étude de faisabilité",
+     "debut": "2027-08-13",
+     "fin": "2027-09-19"
+    },
+    {
+     "nom": "04.COMENG",
+     "debut": "2027-09-19",
+     "fin": "2027-10-26"
+    }
+   ]
+  },
+  {
+   "id": "EX005",
+   "libelle": "Lot 05.Sauvegarde et restauration",
+   "scope": "Domaine E",
+   "debut": "2026-03-03",
+   "fin": "2026-06-29",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 03.Messagerie et collaboration",
+    "Lot 02.Réseau d'entreprise"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "05.Cadrage Archi",
+     "debut": null,
+     "fin": "2026-03-21"
+    },
+    {
+     "nom": "05.Recette",
+     "debut": null,
+     "fin": "2026-04-05"
+    },
+    {
+     "nom": "05.Livraison",
+     "debut": "2026-04-05",
+     "fin": "2026-04-24"
+    },
+    {
+     "nom": "05.Recette",
+     "debut": "2026-04-24",
+     "fin": "2026-05-13"
+    },
+    {
+     "nom": "05.COMENG",
+     "debut": null,
+     "fin": "2026-05-30"
+    },
+    {
+     "nom": "05.Mise en place",
+     "debut": null,
+     "fin": "2026-06-17"
+    }
+   ]
+  },
+  {
+   "id": "EX006",
+   "libelle": "Lot 06.Supervision et exploitation",
+   "scope": "Domaine F",
+   "debut": "2026-05-26",
+   "fin": "2026-12-02",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 01.Plateforme applicative"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "06.Étude de faisabilité",
+     "debut": "2026-05-26",
+     "fin": "2026-07-12"
+    },
+    {
+     "nom": "06.Prêt à l'usage",
+     "debut": "2026-07-12",
+     "fin": "2026-08-28"
+    },
+    {
+     "nom": "06.Mise en place",
+     "debut": null,
+     "fin": "2026-09-21"
+    },
+    {
+     "nom": "06.Mise en place",
+     "debut": "2026-09-21",
+     "fin": "2026-11-07"
+    }
+   ]
+  },
+  {
+   "id": "EX007",
+   "libelle": "Lot 07.Poste de travail",
+   "scope": "Domaine G",
+   "debut": "2026-05-02",
+   "fin": "2026-12-22",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 03.Messagerie et collaboration",
+    "Lot 06.Supervision et exploitation"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "07.COMENG",
+     "debut": "2026-05-02",
+     "fin": "2026-06-29"
+    },
+    {
+     "nom": "07.Livraison",
+     "debut": null,
+     "fin": "2026-08-14"
+    },
+    {
+     "nom": "07.Recette",
+     "debut": null,
+     "fin": "2026-09-15"
+    },
+    {
+     "nom": "07.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-11-12"
+    }
+   ]
+  },
+  {
+   "id": "EX008",
+   "libelle": "Lot 08.Bases de données",
+   "scope": "Domaine H",
+   "debut": "2027-06-08",
+   "fin": "2028-01-09",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": true,
+   "dependances": [],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "08.Prêt à l'usage",
+     "debut": null,
+     "fin": "2027-07-11"
+    },
+    {
+     "nom": "08.Cadrage Archi",
+     "debut": "2027-07-11",
+     "fin": "2027-08-15"
+    },
+    {
+     "nom": "08.Livraison",
+     "debut": null,
+     "fin": "2027-09-07"
+    },
+    {
+     "nom": "08.Prêt à l'usage",
+     "debut": "2027-09-07",
+     "fin": "2027-10-12"
+    },
+    {
+     "nom": "08.Étude de faisabilité",
+     "debut": null,
+     "fin": "2027-10-17"
+    },
+    {
+     "nom": "08.Cadrage Archi",
+     "debut": "2027-10-17",
+     "fin": "2027-11-21"
+    }
+   ]
+  },
+  {
+   "id": "EX009",
+   "libelle": "Lot 09.Transferts de fichiers",
+   "scope": "Domaine I",
+   "debut": "2027-05-06",
+   "fin": "2027-11-22",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [],
+   "impact": 4,
+   "sous_taches": [
+    {
+     "nom": "09.Étude de faisabilité",
+     "debut": "2027-05-06",
+     "fin": "2027-06-03"
+    },
+    {
+     "nom": "09.Prêt à l'usage",
+     "debut": "2027-06-03",
+     "fin": "2027-07-01"
+    },
+    {
+     "nom": "09.Étude de faisabilité",
+     "debut": "2027-07-01",
+     "fin": "2027-07-29"
+    },
+    {
+     "nom": "09.Livraison",
+     "debut": "2027-07-29",
+     "fin": "2027-08-26"
+    },
+    {
+     "nom": "09.Recette",
+     "debut": "2027-08-26",
+     "fin": "2027-09-23"
+    },
+    {
+     "nom": "09.Mise en place",
+     "debut": "2027-09-23",
+     "fin": "2027-10-21"
+    },
+    {
+     "nom": "09.Étude de faisabilité",
+     "debut": null,
+     "fin": "2027-10-31"
+    }
+   ]
+  },
+  {
+   "id": "EX010",
+   "libelle": "Lot 10.Sécurité du périmètre",
+   "scope": "Domaine J",
+   "debut": "2026-01-12",
+   "fin": "2026-03-31",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 01.Plateforme applicative",
+    "Lot 04.Gestion des identités"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "10.Cadrage Archi",
+     "debut": "2026-01-12",
+     "fin": "2026-01-31"
+    },
+    {
+     "nom": "10.Cadrage Archi",
+     "debut": "2026-01-31",
+     "fin": "2026-02-19"
+    },
+    {
+     "nom": "10.COMENG",
+     "debut": "2026-02-19",
+     "fin": "2026-03-10"
+    },
+    {
+     "nom": "10.Étude de faisabilité",
+     "debut": "2026-03-10",
+     "fin": "2026-03-29"
+    }
+   ]
+  },
+  {
+   "id": "EX011",
+   "libelle": "Lot 11.Virtualisation",
+   "scope": "Domaine A",
+   "debut": "2027-05-04",
+   "fin": "2028-01-25",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 02.Réseau d'entreprise"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "11.Recette",
+     "debut": "2027-05-04",
+     "fin": "2027-07-09"
+    },
+    {
+     "nom": "11.Livraison",
+     "debut": "2027-07-09",
+     "fin": "2027-09-13"
+    },
+    {
+     "nom": "11.Prêt à l'usage",
+     "debut": "2027-09-13",
+     "fin": "2027-11-18"
+    },
+    {
+     "nom": "11.Recette",
+     "debut": "2027-11-18",
+     "fin": "2028-01-23"
+    }
+   ]
+  },
+  {
+   "id": "EX012",
+   "libelle": "Lot 12.Ordonnancement",
+   "scope": "Domaine B",
+   "debut": "2026-12-18",
+   "fin": "2027-09-08",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 04.Gestion des identités",
+    "Lot 11.Virtualisation"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "12.Mise en place",
+     "debut": "2026-12-18",
+     "fin": "2027-02-08"
+    },
+    {
+     "nom": "12.Livraison",
+     "debut": null,
+     "fin": "2027-03-09"
+    },
+    {
+     "nom": "12.Étude de faisabilité",
+     "debut": "2027-03-09",
+     "fin": "2027-04-30"
+    },
+    {
+     "nom": "12.Cadrage Archi",
+     "debut": "2027-04-30",
+     "fin": "2027-06-21"
+    },
+    {
+     "nom": "12.Prêt à l'usage",
+     "debut": "2027-06-21",
+     "fin": "2027-08-12"
+    }
+   ]
+  },
+  {
+   "id": "EX013",
+   "libelle": "Lot 13.Gestion des accès à distance",
+   "scope": "Domaine C",
+   "debut": "2026-09-04",
+   "fin": "2026-12-15",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 08.Bases de données"
+   ],
+   "impact": 3,
+   "sous_taches": [
+    {
+     "nom": "13.Prêt à l'usage",
+     "debut": "2026-09-04",
+     "fin": "2026-09-24"
+    },
+    {
+     "nom": "13.Cadrage Archi",
+     "debut": null,
+     "fin": "2026-09-24"
+    },
+    {
+     "nom": "13.Livraison",
+     "debut": null,
+     "fin": "2026-10-08"
+    },
+    {
+     "nom": "13.COMENG",
+     "debut": "2026-10-08",
+     "fin": "2026-10-28"
+    },
+    {
+     "nom": "13.Recette",
+     "debut": "2026-10-28",
+     "fin": "2026-11-17"
+    }
+   ]
+  },
+  {
+   "id": "EX014",
+   "libelle": "Lot 14.Stockage objet",
+   "scope": "Domaine D",
+   "debut": "2026-11-04",
+   "fin": "2027-02-27",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "oui",
+   "terminee": true,
+   "dependances": [
+    "Lot 10.Sécurité du périmètre",
+    "Lot 12.Ordonnancement",
+    "Lot 09.Transferts de fichiers"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "14.Recette",
+     "debut": null,
+     "fin": "2026-11-05"
+    },
+    {
+     "nom": "14.Mise en place",
+     "debut": "2026-11-05",
+     "fin": "2026-12-03"
+    },
+    {
+     "nom": "14.Prêt à l'usage",
+     "debut": "2026-12-03",
+     "fin": "2026-12-31"
+    },
+    {
+     "nom": "14.Cadrage Archi",
+     "debut": "2026-12-31",
+     "fin": "2027-01-28"
+    }
+   ]
+  },
+  {
+   "id": "EX015",
+   "libelle": "Lot 15.Conteneurs",
+   "scope": "Domaine E",
+   "debut": "2026-03-15",
+   "fin": "2026-11-02",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 07.Poste de travail",
+    "Lot 02.Réseau d'entreprise"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "15.Mise en place",
+     "debut": "2026-03-15",
+     "fin": "2026-04-30"
+    },
+    {
+     "nom": "15.Mise en place",
+     "debut": null,
+     "fin": "2026-06-11"
+    },
+    {
+     "nom": "15.Mise en place",
+     "debut": "2026-06-11",
+     "fin": "2026-07-27"
+    },
+    {
+     "nom": "15.COMENG",
+     "debut": "2026-07-27",
+     "fin": "2026-09-11"
+    },
+    {
+     "nom": "15.Étude de faisabilité",
+     "debut": "2026-09-11",
+     "fin": "2026-10-27"
+    }
+   ]
+  },
+  {
+   "id": "EX016",
+   "libelle": "Lot 16.Automatisation des déploiements",
+   "scope": "Domaine F",
+   "debut": "2026-11-08",
+   "fin": "2027-05-04",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 13.Gestion des accès à distance"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "16.Cadrage Archi",
+     "debut": "2026-11-08",
+     "fin": "2026-12-22"
+    },
+    {
+     "nom": "16.Mise en place",
+     "debut": "2026-12-22",
+     "fin": "2027-02-04"
+    },
+    {
+     "nom": "16.Cadrage Archi",
+     "debut": "2027-02-04",
+     "fin": "2027-03-20"
+    },
+    {
+     "nom": "16.Mise en place",
+     "debut": null,
+     "fin": "2027-04-11"
+    }
+   ]
+  },
+  {
+   "id": "EX017",
+   "libelle": "Lot 17.Téléphonie",
+   "scope": "Domaine G",
+   "debut": "2026-06-15",
+   "fin": "2026-12-04",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 10.Sécurité du périmètre",
+    "Lot 16.Automatisation des déploiements"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "17.Recette",
+     "debut": "2026-06-15",
+     "fin": "2026-07-28"
+    },
+    {
+     "nom": "17.COMENG",
+     "debut": "2026-07-28",
+     "fin": "2026-09-09"
+    },
+    {
+     "nom": "17.Cadrage Archi",
+     "debut": "2026-09-09",
+     "fin": "2026-10-22"
+    },
+    {
+     "nom": "17.Étude de faisabilité",
+     "debut": null,
+     "fin": "2026-10-28"
+    }
+   ]
+  },
+  {
+   "id": "EX018",
+   "libelle": "Lot 18.Supervision réseau",
+   "scope": "Domaine H",
+   "debut": "2026-08-08",
+   "fin": "2027-04-08",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": true,
+   "dependances": [
+    "Lot 09.Transferts de fichiers"
+   ],
+   "impact": 2,
+   "sous_taches": [
+    {
+     "nom": "18.COMENG",
+     "debut": "2026-08-08",
+     "fin": "2026-09-11"
+    },
+    {
+     "nom": "18.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-10-08"
+    },
+    {
+     "nom": "18.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-10-08"
+    },
+    {
+     "nom": "18.COMENG",
+     "debut": "2026-10-08",
+     "fin": "2026-11-11"
+    },
+    {
+     "nom": "18.Recette",
+     "debut": "2026-11-11",
+     "fin": "2026-12-15"
+    },
+    {
+     "nom": "18.Étude de faisabilité",
+     "debut": "2026-12-15",
+     "fin": "2027-01-18"
+    },
+    {
+     "nom": "18.Mise en place",
+     "debut": "2027-01-18",
+     "fin": "2027-02-21"
+    }
+   ]
+  },
+  {
+   "id": "EX019",
+   "libelle": "Lot 19.Gestion des habilitations",
+   "scope": "Domaine I",
+   "debut": "2026-06-06",
+   "fin": "2026-12-22",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "19.Mise en place",
+     "debut": "2026-06-06",
+     "fin": "2026-07-09"
+    },
+    {
+     "nom": "19.Livraison",
+     "debut": null,
+     "fin": "2026-07-28"
+    },
+    {
+     "nom": "19.COMENG",
+     "debut": "2026-07-28",
+     "fin": "2026-08-30"
+    },
+    {
+     "nom": "19.Prêt à l'usage",
+     "debut": "2026-08-30",
+     "fin": "2026-10-02"
+    },
+    {
+     "nom": "19.Cadrage Archi",
+     "debut": "2026-10-02",
+     "fin": "2026-11-04"
+    },
+    {
+     "nom": "19.Étude de faisabilité",
+     "debut": "2026-11-04",
+     "fin": "2026-12-07"
+    }
+   ]
+  },
+  {
+   "id": "EX020",
+   "libelle": "Lot 20.Portail intranet",
+   "scope": "Domaine J",
+   "debut": "2027-02-25",
+   "fin": "2027-10-01",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 08.Bases de données",
+    "Lot 06.Supervision et exploitation"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "20.Livraison",
+     "debut": null,
+     "fin": "2027-03-18"
+    },
+    {
+     "nom": "20.Prêt à l'usage",
+     "debut": "2027-03-18",
+     "fin": "2027-04-30"
+    },
+    {
+     "nom": "20.Prêt à l'usage",
+     "debut": "2027-04-30",
+     "fin": "2027-06-12"
+    },
+    {
+     "nom": "20.Recette",
+     "debut": "2027-06-12",
+     "fin": "2027-07-25"
+    },
+    {
+     "nom": "20.COMENG",
+     "debut": null,
+     "fin": "2027-07-31"
+    }
+   ]
+  },
+  {
+   "id": "EX021",
+   "libelle": "Lot 21.Catalogue de services",
+   "scope": "Domaine A",
+   "debut": "2026-08-20",
+   "fin": "2026-12-09",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 15.Conteneurs",
+    "Lot 12.Ordonnancement"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "21.Prêt à l'usage",
+     "debut": "2026-08-20",
+     "fin": "2026-09-07"
+    },
+    {
+     "nom": "21.Étude de faisabilité",
+     "debut": null,
+     "fin": "2026-09-13"
+    },
+    {
+     "nom": "21.Livraison",
+     "debut": null,
+     "fin": "2026-09-15"
+    },
+    {
+     "nom": "21.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-10-01"
+    },
+    {
+     "nom": "21.Livraison",
+     "debut": "2026-10-01",
+     "fin": "2026-10-19"
+    },
+    {
+     "nom": "21.Prêt à l'usage",
+     "debut": "2026-10-19",
+     "fin": "2026-11-06"
+    }
+   ]
+  },
+  {
+   "id": "EX022",
+   "libelle": "Lot 22.Continuité d'activité",
+   "scope": "Domaine B",
+   "debut": "2026-09-29",
+   "fin": "2027-01-12",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 09.Transferts de fichiers"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "22.Cadrage Archi",
+     "debut": "2026-09-29",
+     "fin": "2026-10-25"
+    },
+    {
+     "nom": "22.COMENG",
+     "debut": "2026-10-25",
+     "fin": "2026-11-20"
+    },
+    {
+     "nom": "22.COMENG",
+     "debut": "2026-11-20",
+     "fin": "2026-12-16"
+    },
+    {
+     "nom": "22.Mise en place",
+     "debut": null,
+     "fin": "2027-01-03"
+    }
+   ]
+  },
+  {
+   "id": "EX023",
+   "libelle": "Lot 23.Observabilité",
+   "scope": "Domaine C",
+   "debut": "2026-01-06",
+   "fin": "2026-07-18",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 18.Supervision réseau",
+    "Lot 22.Continuité d'activité",
+    "Lot 07.Poste de travail"
+   ],
+   "impact": 1,
+   "sous_taches": [
+    {
+     "nom": "23.Livraison",
+     "debut": null,
+     "fin": "2026-01-27"
+    },
+    {
+     "nom": "23.Mise en place",
+     "debut": null,
+     "fin": "2026-02-03"
+    },
+    {
+     "nom": "23.Recette",
+     "debut": "2026-02-03",
+     "fin": "2026-03-07"
+    },
+    {
+     "nom": "23.Mise en place",
+     "debut": null,
+     "fin": "2026-04-02"
+    },
+    {
+     "nom": "23.COMENG",
+     "debut": "2026-04-02",
+     "fin": "2026-05-04"
+    },
+    {
+     "nom": "23.COMENG",
+     "debut": "2026-05-04",
+     "fin": "2026-06-05"
+    }
+   ]
+  },
+  {
+   "id": "EX024",
+   "libelle": "Lot 24.Certificats et PKI",
+   "scope": "Domaine D",
+   "debut": "2026-07-02",
+   "fin": "2027-02-04",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 13.Gestion des accès à distance"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "24.COMENG",
+     "debut": null,
+     "fin": "2026-07-29"
+    },
+    {
+     "nom": "24.Prêt à l'usage",
+     "debut": "2026-07-29",
+     "fin": "2026-09-21"
+    },
+    {
+     "nom": "24.Recette",
+     "debut": null,
+     "fin": "2026-10-19"
+    },
+    {
+     "nom": "24.Livraison",
+     "debut": "2026-10-19",
+     "fin": "2026-12-12"
+    }
+   ]
+  },
+  {
+   "id": "EX025",
+   "libelle": "Lot 25.Gestion des flux",
+   "scope": "Domaine E",
+   "debut": "2026-10-22",
+   "fin": "2027-05-01",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 20.Portail intranet"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "25.Cadrage Archi",
+     "debut": "2026-10-22",
+     "fin": "2026-11-22"
+    },
+    {
+     "nom": "25.Prêt à l'usage",
+     "debut": null,
+     "fin": "2026-12-11"
+    },
+    {
+     "nom": "25.Étude de faisabilité",
+     "debut": "2026-12-11",
+     "fin": "2027-01-11"
+    },
+    {
+     "nom": "25.Étude de faisabilité",
+     "debut": null,
+     "fin": "2027-01-26"
+    },
+    {
+     "nom": "25.Livraison",
+     "debut": "2027-01-26",
+     "fin": "2027-02-26"
+    },
+    {
+     "nom": "25.Prêt à l'usage",
+     "debut": null,
+     "fin": "2027-03-24"
+    }
+   ]
+  },
+  {
+   "id": "EX026",
+   "libelle": "Lot 26.Impression",
+   "scope": "Domaine F",
+   "debut": "2027-02-02",
+   "fin": "2027-08-07",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 05.Sauvegarde et restauration"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "26.Prêt à l'usage",
+     "debut": "2027-02-02",
+     "fin": "2027-03-20"
+    },
+    {
+     "nom": "26.Cadrage Archi",
+     "debut": "2027-03-20",
+     "fin": "2027-05-05"
+    },
+    {
+     "nom": "26.Étude de faisabilité",
+     "debut": null,
+     "fin": "2027-06-18"
+    },
+    {
+     "nom": "26.Mise en place",
+     "debut": "2027-06-18",
+     "fin": "2027-08-03"
+    }
+   ]
+  },
+  {
+   "id": "EX027",
+   "libelle": "Lot 27.Fédération d'identité",
+   "scope": "Domaine G",
+   "debut": "2027-04-25",
+   "fin": "2027-12-11",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 18.Supervision réseau"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "27.Prêt à l'usage",
+     "debut": "2027-04-25",
+     "fin": "2027-06-02"
+    },
+    {
+     "nom": "27.Mise en place",
+     "debut": "2027-06-02",
+     "fin": "2027-07-10"
+    },
+    {
+     "nom": "27.Mise en place",
+     "debut": "2027-07-10",
+     "fin": "2027-08-17"
+    },
+    {
+     "nom": "27.Mise en place",
+     "debut": "2027-08-17",
+     "fin": "2027-09-24"
+    },
+    {
+     "nom": "27.Étude de faisabilité",
+     "debut": "2027-09-24",
+     "fin": "2027-11-01"
+    },
+    {
+     "nom": "27.Livraison",
+     "debut": "2027-11-01",
+     "fin": "2027-12-09"
+    }
+   ]
+  },
+  {
+   "id": "EX028",
+   "libelle": "Lot 28.Pare-feu nouvelle génération",
+   "scope": "Domaine H",
+   "debut": "2027-06-22",
+   "fin": "2027-12-23",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": "oui",
+   "terminee": false,
+   "dependances": [
+    "Lot 09.Transferts de fichiers"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "28.Cadrage Archi",
+     "debut": "2027-06-22",
+     "fin": "2027-07-18"
+    },
+    {
+     "nom": "28.Étude de faisabilité",
+     "debut": null,
+     "fin": "2027-07-28"
+    },
+    {
+     "nom": "28.Mise en place",
+     "debut": null,
+     "fin": "2027-08-01"
+    },
+    {
+     "nom": "28.Étude de faisabilité",
+     "debut": "2027-08-01",
+     "fin": "2027-08-27"
+    },
+    {
+     "nom": "28.Étude de faisabilité",
+     "debut": "2027-08-27",
+     "fin": "2027-09-22"
+    },
+    {
+     "nom": "28.Cadrage Archi",
+     "debut": "2027-09-22",
+     "fin": "2027-10-18"
+    },
+    {
+     "nom": "28.COMENG",
+     "debut": "2027-10-18",
+     "fin": "2027-11-13"
+    }
+   ]
+  },
+  {
+   "id": "EX029",
+   "libelle": "Lot 29.Gestion des incidents",
+   "scope": "Domaine I",
+   "debut": "2027-02-07",
+   "fin": "2027-11-25",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "non",
+   "terminee": true,
+   "dependances": [
+    "Lot 23.Observabilité",
+    "Lot 01.Plateforme applicative"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "29.Livraison",
+     "debut": null,
+     "fin": "2027-03-01"
+    },
+    {
+     "nom": "29.COMENG",
+     "debut": "2027-03-01",
+     "fin": "2027-04-11"
+    },
+    {
+     "nom": "29.Prêt à l'usage",
+     "debut": "2027-04-11",
+     "fin": "2027-05-22"
+    },
+    {
+     "nom": "29.Prêt à l'usage",
+     "debut": "2027-05-22",
+     "fin": "2027-07-02"
+    },
+    {
+     "nom": "29.Recette",
+     "debut": "2027-07-02",
+     "fin": "2027-08-12"
+    },
+    {
+     "nom": "29.Prêt à l'usage",
+     "debut": "2027-08-12",
+     "fin": "2027-09-22"
+    },
+    {
+     "nom": "29.Étude de faisabilité",
+     "debut": "2027-09-22",
+     "fin": "2027-11-02"
+    }
+   ]
+  },
+  {
+   "id": "EX030",
+   "libelle": "Lot 30.Référentiel de données",
+   "scope": "Domaine J",
+   "debut": "2026-12-15",
+   "fin": "2027-08-03",
+   "fin_estimee": false,
+   "selection": "Priorité haute",
+   "direction": null,
+   "materiel": "non",
+   "terminee": false,
+   "dependances": [
+    "Lot 13.Gestion des accès à distance"
+   ],
+   "impact": 0,
+   "sous_taches": [
+    {
+     "nom": "30.Prêt à l'usage",
+     "debut": "2026-12-15",
+     "fin": "2027-01-30"
+    },
+    {
+     "nom": "30.Étude de faisabilité",
+     "debut": "2027-01-30",
+     "fin": "2027-03-17"
+    },
+    {
+     "nom": "30.Mise en place",
+     "debut": null,
+     "fin": "2027-04-11"
+    },
+    {
+     "nom": "30.Mise en place",
+     "debut": "2027-04-11",
+     "fin": "2027-05-27"
+    },
+    {
+     "nom": "30.Cadrage Archi",
+     "debut": null,
+     "fin": "2027-06-23"
+    }
+   ]
+  }
+ ]
+};
+
+const parId = {};
+DATA.lots.forEach(l => parId[l.id] = l);
+
+/* ---------- zoom : la timeline seule, colonnes fixes ---------- */
+const scroll = document.getElementById('scroll');
+const inner = document.getElementById('inner');
+const zniveau = document.getElementById('zniveau');
+let zoom = 1;
+function appliquerZoom() {
+  inner.style.width = (zoom * 100) + '%';
+  zniveau.textContent = zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+}
+document.getElementById('zplus').addEventListener('click', () => { zoom = Math.min(zoom * 2, 16); appliquerZoom(); });
+document.getElementById('zmoins').addEventListener('click', () => {
+  zoom = zoom / 2 <= 1 ? 1 : zoom / 2; appliquerZoom();
+});
+scroll.addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const avant = inner.getBoundingClientRect().width;
+  zoom = Math.min(16, Math.max(1, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  appliquerZoom();
+  const apres = inner.getBoundingClientRect().width;
+  scroll.scrollLeft = scroll.scrollLeft * (apres / avant);
+}, { passive: false });
+
+let drag = null;
+scroll.addEventListener('mousedown', e => {
+  if (zoom <= 1) return;
+  drag = { x: e.clientX, s: scroll.scrollLeft };
+  scroll.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+});
+window.addEventListener('mouseup', () => { drag = null; scroll.style.cursor = ''; });
+
+/* ---------- sous-tâches (repliées par défaut) ---------- */
+const host = document.getElementById('panneau-host');
+const rows = document.getElementById('rows');
+function ouvrirPanneau(gid, ligneRef) {
+  host.innerHTML = '';
+  const lot = parId[gid];
+  if (!lot) return;
+  const st = (lot.sous_taches || []).map(s =>
+    `<tr><td>${s.nom}</td><td>${s.debut || ''}</td><td>${s.fin || ''}</td></tr>`
+  ).join('');
+  const deps = (lot.dependances || []).join(', ') || 'aucune';
+  const p = document.createElement('div');
+  p.className = 'panneau';
+  p.style.pointerEvents = 'auto';
+  p.style.top = Math.min(ligneRef.offsetTop + 14, 360) + 'px';
+  p.innerHTML =
+    `<span class="fermer" title="refermer">✕</span>` +
+    `<h3>${lot.libelle}</h3>` +
+    `<div class="dep"><b>Dépendances :</b> ${deps}</div>` +
+    `<table><tr><th>Sous-tâche</th><th>Début</th><th>Fin</th></tr>${st}</table>`;
+  p.querySelector('.fermer').addEventListener('click', () => host.innerHTML = '');
+  p.addEventListener('click', e => e.stopPropagation());
+  host.appendChild(p);
+}
+document.querySelectorAll('.lot-row').forEach(el => {
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    ouvrirPanneau(el.dataset.lot, el);
+  });
+});
+document.addEventListener('click', () => host.innerHTML = '');
+appliquerZoom();
+</script>
+</body>
+</html>

@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning de projet : détail</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  h1 { font-size: 30px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  .zoom { display: flex; gap: 6px; align-items: center; }
+  .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
+  .zoom .niveau { font-size: 12px; color: #555; width: 40px; text-align: center; }
+  .gantt { flex: 1; display: flex; flex-direction: column; border: 1px solid #d5d5d5; min-height: 0; position: relative; }
+  .corps { flex: 1; min-height: 0; position: relative; }
+  .scroll { position: absolute; inset: 0; overflow: auto; }
+  .scroll::-webkit-scrollbar { width: 9px; height: 9px; }
+  .scroll::-webkit-scrollbar-thumb { background: #b9b9d0; border-radius: 5px; }
+  .inner { position: relative; min-width: 100%; min-height: 100%; }
+  .entete-tl { display: flex; height: 44px; position: sticky; top: 0; z-index: 10; }
+  .h-g { width: 190px; flex: none; background: #1f1f38; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: sticky; left: 0; z-index: 11; }
+  .qcol { flex: 1; border-left: 1px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; line-height: 1.2; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+  .qcol:nth-child(2) { border-left: none; }
+  .grid { position: absolute; left: 190px; right: 0; top: 44px; bottom: 0; z-index: 0; }
+  .qsep { position: absolute; top: 0; bottom: 0; width: 1px; background: #ececf2; }
+  .qsep.q1 { background: #c4c4d4; }
+  .rowsbox { position: relative; z-index: 1; }
+  .row { display: flex; border-bottom: 1px solid #f4f4f4; }
+  .row.groupe-row { border-bottom: none; }
+  .cell-g { width: 190px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; padding-left: 8px; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }
+  .groupe-row .cell-g { justify-content: center; padding-left: 0; font-size: 12.5px; }
+  .cell-tl { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+  .groupe-row .cell-tl { display: flex; align-items: center; }
+  .bande { position: absolute; top: 25%; bottom: 25%; border-radius: 2px; }
+  .lot-row { cursor: pointer; }
+  .lot-row:hover .cell-tl { background: #f6f8ff; }
+  .lot-row.sel .cell-tl { background: #fff3bf; }
+  .lot-row.dim .barre, .lot-row.dim .lab, .lot-row.dim .alerte { opacity: .22; }
+  .st-row.dim .barre, .st-row.dim .marqueur, .st-row.dim .lab { opacity: .18; }
+  .st-row .cell-g { border-right-color: #eee; }
+  .st-row .cell-tl { background: #fcfcfe; }
+  .barre { position: absolute; top: 50%; transform: translateY(-50%); height: 3.5px; border-radius: 2px; }
+  .st-barre { height: 3px; opacity: .75; }
+  .marqueur { position: absolute; top: 50%; width: 7px; height: 7px; transform: translate(-50%, -50%) rotate(45deg); border: 1px solid rgba(0,0,0,.25); }
+  .alerte { position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 11px; font-weight: bold; z-index: 6; }
+  .lab { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 5; display: inline-flex; align-items: center; gap: 4px; }
+  .lab-inv { transform: translate(-100%, -50%); border-left: none; border-right: 2.5px solid; text-align: right; }
+  .lab.jaune { background: #f7e733; }
+  .lab.a-dater { font-style: italic; color: #777; }
+  .st-lab { font-size: 9px; border-left-width: 2px; color: #333; }
+  .st-lab.sans-date { color: #999; font-style: italic; }
+  .chev { font-size: 9px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }
+  .svg-fleches { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+  .svg-fleches path.vis { pointer-events: none; }
+  .svg-fleches path.vis.hov { stroke-width: 3; filter: drop-shadow(0 0 2px rgba(0,0,0,.45)); }
+  .svg-fleches path.hit { pointer-events: stroke; stroke: transparent; stroke-width: 9; fill: none; cursor: pointer; }
+  .lot-row.lie .cell-tl { background: #e3ebff; }
+  .lot-row.lie .barre { height: 6px; }
+  .cache { display: none; }
+  .pied { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 12px; color: #333; }
+  .stats { border: 1px solid #c33; color: #c33; padding: 6px 14px; text-align: center; font-size: 12.5px; border-radius: 4px; }
+  .legende span { display: inline-block; margin-right: 12px; }
+  .legende i { display: inline-block; width: 24px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .legende b { color: #e01414; }
+  .legende .f1 { color: #444; }
+  .legende .f2 { color: #aaa; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="titre">
+    <div style="width:220px"></div>
+    <h1>PLANNING DE PROJET : DÉTAIL</h1>
+    <div class="zoom">
+      <button id="zmoins" title="dézoomer (1x = vue complète)">−</button>
+      <span class="niveau" id="zniveau">1×</span>
+      <button id="zplus" title="zoomer">+</button>
+      <button id="raz" title="effacer les flèches de dépendance">✕</button>
+    </div>
+  </div>
+  <div class="gantt">
+    <div class="corps">
+      <div class="scroll" id="scroll">
+        <div class="inner" id="inner">
+          <div class="entete-tl"><div class="h-g">LOTS &amp; SOUS-TÂCHES</div><div class="qcol" style="background:#1b2a6b"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#2e7d32"><span>T4</span><span>2026</span></div><div class="qcol" style="background:#6a1b9a"><span>T1</span><span>2027</span></div><div class="qcol" style="background:#b36b00"><span>T2</span><span>2027</span></div><div class="qcol" style="background:#00838f"><span>T3</span><span>2027</span></div><div class="qcol" style="background:#ad1457"><span>T4</span><span>2027</span></div></div>
+          <div class="grid"><div class="qsep" style="left:16.758%"></div><div class="qsep q1" style="left:33.515%"></div><div class="qsep" style="left:49.909%"></div><div class="qsep" style="left:66.485%"></div><div class="qsep" style="left:83.242%"></div></div>
+          <div class="rowsbox" id="rows"><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#455a64;font-size:12.5px" title="Test">Test</div><div class="cell-tl"><span class="bande" style="background:#455a64;left:0.0%;width:99.818%"></span></div></div><div class="row lot-row" id="LTEST1" data-lot="TEST1" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:0.0%;width:16.576%;background:#455a64"></span><span class="lab" style="left:16.876%;border-color:#455a64"> TEST 1 : fin pour commencer</span></div></div><div class="row lot-row" id="LTEST2" data-lot="TEST2" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:16.758%;width:16.575%;background:#455a64"></span><span class="lab" style="left:33.632999999999996%;border-color:#455a64"> TEST 2 : commence après la fin de TEST 1 (FS)</span></div></div><div class="row lot-row" id="LTEST3" data-lot="TEST3" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:33.515%;width:16.211999999999996%;background:#455a64"></span><span class="lab" style="left:50.026999999999994%;border-color:#455a64"> TEST 3 : commence après la fin de TEST 2 (FS)</span></div></div><div class="row lot-row" id="LTEST4" data-lot="TEST4" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:33.515%;width:66.303%;background:#455a64"></span><span class="lab lab-inv" style="left:33.215%;border-color:#455a64"> TEST 4 : démarre avec TEST 3 (SS) et finit après la fin de TEST 2 (FF)</span></div></div>
+            <svg class="svg-fleches" id="fleches"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pied">
+    <div class="legende">
+      <span><i style="background:#00b4e6"></i>lot</span>
+      <span><i style="background:#00b4e6;opacity:.6"></i>sous-tâche</span>
+      <span><span class="f1">→</span> dépendance lot &gt; lot (colonne Blocked By)</span>
+      <span style="color:#1a7f37">→ SS : début pour commencer</span>
+      <span style="color:#b36b00">→ FF : fin pour finir</span>
+      <span style="color:#c62828">→ rouge : incohérence de dates (successeur avant le début de son prédécesseur)</span>
+      <span style="color:#666">→ pointillé : tâche en amont terminée (ne bloque plus)</span>
+      <span><span class="f2">→</span> enchaînement des sous-tâches du lot sélectionné (ordre des dates)</span>
+      <span><b>✚</b> impact fort (≥ 8 lots en aval)</span>
+      <span>cliquer sur un lot : ses liens directs ; cliquer un lot surligné : étendre ; ✕ / Échap : effacer</span>
+      <span>survolez une flèche : elle s'épaissit et les deux lots reliés sont surlignés</span>
+      <span>cliquer sur ▸ n : plier / déplier les sous-tâches</span>
+    </div>
+    <div class="stats"><b>0 lots</b> (+4 de démonstration) / 0 sous-tâches<br>0 dépendances + 0 enchaînements</div>
+  </div>
+</div>
+<script>
+/* ================================================================
+   DONNÉES DU PLANNING (voir le fichier principal pour la structure)
+   ================================================================ */
+const DATA = {
+ "titre": "PLANNING DE PROJET : DÉTAIL",
+ "projet_asana": "",
+ "date_generation": "2026-10-30",
+ "nb_lots": 0,
+ "nb_lots_demo": 4,
+ "nb_sous_taches": 0,
+ "nb_dependances_lots": 0,
+ "nb_chainages": 0,
+ "scopes": [
+  "Test"
+ ],
+ "lots": [
+  {
+   "id": "TEST1",
+   "libelle": "TEST 1 : fin pour commencer",
+   "scope": "Test",
+   "debut": "2026-07-01",
+   "fin": "2026-09-30",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": null,
+   "terminee": false,
+   "dependances": [],
+   "impact": 1,
+   "sous_taches": []
+  },
+  {
+   "id": "TEST2",
+   "libelle": "TEST 2 : commence après la fin de TEST 1 (FS)",
+   "scope": "Test",
+   "debut": "2026-10-01",
+   "fin": "2026-12-31",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": null,
+   "terminee": false,
+   "dependances": [
+    "TEST 1 : fin pour commencer"
+   ],
+   "impact": 2,
+   "sous_taches": []
+  },
+  {
+   "id": "TEST3",
+   "libelle": "TEST 3 : commence après la fin de TEST 2 (FS)",
+   "scope": "Test",
+   "debut": "2027-01-01",
+   "fin": "2027-03-31",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": null,
+   "terminee": false,
+   "dependances": [
+    "TEST 2 : commence après la fin de TEST 1 (FS)"
+   ],
+   "impact": 1,
+   "sous_taches": []
+  },
+  {
+   "id": "TEST4",
+   "libelle": "TEST 4 : démarre avec TEST 3 (SS) et finit après la fin de TEST 2 (FF)",
+   "scope": "Test",
+   "debut": "2027-01-01",
+   "fin": "2027-12-31",
+   "fin_estimee": false,
+   "selection": null,
+   "direction": null,
+   "materiel": null,
+   "terminee": false,
+   "dependances": [
+    "TEST 3 : commence après la fin de TEST 2 (FS)",
+    "TEST 2 : commence après la fin de TEST 1 (FS)"
+   ],
+   "impact": 0,
+   "sous_taches": []
+  }
+ ]
+};
+
+/* flèches : [idLignePredecesseur, idLigneSuccesseur] ; les liens de la
+   catégorie Test portent un type de liaison : FS, SS ou FF */
+const EDGES = {"lots": [], "chaines": [], "tests": [["TEST1", "TEST2", "FS"], ["TEST2", "TEST3", "FS"], ["TEST3", "TEST4", "SS"], ["TEST2", "TEST4", "FF"]]};
+
+/* ---------- zoom / déplacement (identique à la vue synthèse) ---------- */
+const scroll = document.getElementById('scroll');
+const inner = document.getElementById('inner');
+const zniveau = document.getElementById('zniveau');
+let zoom = 1;
+function appliquerZoom() {
+  inner.style.width = (zoom * 100) + '%';
+  zniveau.textContent = zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+  dessiner();
+}
+document.getElementById('zplus').addEventListener('click', () => { zoom = Math.min(zoom * 2, 16); appliquerZoom(); });
+document.getElementById('zmoins').addEventListener('click', () => {
+  zoom = zoom / 2 <= 1 ? 1 : zoom / 2; appliquerZoom();
+});
+scroll.addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const avant = inner.getBoundingClientRect().width;
+  zoom = Math.min(16, Math.max(1, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  appliquerZoom();
+  const apres = inner.getBoundingClientRect().width;
+  scroll.scrollLeft = scroll.scrollLeft * (apres / avant);
+}, { passive: false });
+
+let drag = null;
+scroll.addEventListener('mousedown', e => {
+  if (zoom <= 1) return;
+  drag = { x: e.clientX, s: scroll.scrollLeft };
+  scroll.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+});
+window.addEventListener('mouseup', () => { drag = null; scroll.style.cursor = ''; });
+
+/* ---------- sélection progressive des dépendances ---------- */
+/* Par défaut aucune flèche. Premier clic sur un lot : ses liens directs
+   amont et aval s'affichent. Clic sur un lot surligné : on étend la chaîne
+   depuis lui. Clic ailleurs, bouton réinitialiser ou Échap : tout s'efface.
+   Les enchaînements de sous-tâches ne suivent que le lot focal (dernier
+   lot cliqué). */
+const parLot = {};
+DATA.lots.forEach(l => parLot[l.id] = l);
+const libelles = {};
+DATA.lots.forEach(l => libelles[l.id] = l.libelle);
+const amont = {}, aval_ = {};
+EDGES.lots.forEach(([f, t]) => {
+  (amont[t] = amont[t] || []).push(f);
+  (aval_[f] = aval_[f] || []).push(t);
+});
+EDGES.tests.forEach(([f, t]) => {
+  (amont[t] = amont[t] || []).push(f);
+  (aval_[f] = aval_[f] || []).push(t);
+});
+let selection = null;   // Set de gids
+let focal = null;       // dernier lot cliqué
+
+function voisins(gid) {
+  return new Set([...(amont[gid] || []), ...(aval_[gid] || [])]);
+}
+
+function appliquerSelection() {
+  document.querySelectorAll('.lot-row, .st-row').forEach(r => r.classList.remove('dim', 'sel'));
+  if (!selection || !selection.size) {
+    selection = null; focal = null; dessiner(); return;
+  }
+  document.querySelectorAll('.lot-row').forEach(r => {
+    r.classList.add(selection.has(r.dataset.lot) ? 'sel' : 'dim');
+  });
+  document.querySelectorAll('.st-row').forEach(r => {
+    const gidLot = r.id.slice(1, r.id.lastIndexOf('-'));
+    if (!selection.has(gidLot)) r.classList.add('dim');
+  });
+  dessiner();
+}
+
+function effacerSelection() {
+  if (selection) { selection = null; appliquerSelection(); }
+}
+
+document.querySelectorAll('.lot-row').forEach(el => {
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    const gid = el.dataset.lot;
+    if (!selection) {
+      selection = new Set([gid, ...voisins(gid)]);
+    } else if (selection.has(gid)) {
+      voisins(gid).forEach(v => selection.add(v));
+    } else {
+      selection.add(gid);
+      voisins(gid).forEach(v => selection.add(v));
+    }
+    focal = gid;
+    appliquerSelection();
+  });
+});
+document.addEventListener('click', effacerSelection);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') effacerSelection();
+});
+document.getElementById('raz').addEventListener('click', e => {
+  e.stopPropagation(); effacerSelection();
+});
+
+/* plier / déplier : clic sur le compteur ▸ n du lot */
+document.querySelectorAll('.chev').forEach(ch => {
+  ch.addEventListener('click', e => {
+    e.stopPropagation();
+    const el = ch.closest('.lot-row');
+    const gid = el.dataset.lot;
+    const sts = document.querySelectorAll(`[id^="S${gid}-"]`);
+    const plier = sts.length && !sts[0].classList.contains('cache');
+    sts.forEach(s => s.classList.toggle('cache', plier));
+    ch.textContent = ch.textContent.replace(plier ? '▾' : '▸', plier ? '▸' : '▾');
+    dessiner();
+  });
+});
+
+/* ---------- tracé des flèches de dépendance (SVG) ---------- */
+const svg = document.getElementById('fleches');
+const rows = document.getElementById('rows');
+function rectBarre(ligneId) {
+  const el = document.getElementById(ligneId);
+  if (!el || !el.offsetParent) return null;
+  const barre = el.querySelector('.barre, .marqueur');
+  if (!barre) return null;
+  const base = svg.getBoundingClientRect();
+  const r = barre.getBoundingClientRect();
+  return { x1: r.left - base.left, x2: r.right - base.left, ym: r.top + r.height / 2 - base.top };
+}
+function chemin(a, b, type) {
+  /* ancrages selon le type de liaison :
+     FS (fin pour commencer) : fin du prédécesseur -> début du successeur
+     SS (début pour commencer) : début -> début
+     FF (fin pour finir) : fin -> fin
+     Routage : coude simple si la cible est à droite ; sinon passage par le
+     couloir entre les deux lignes pour préserver le sens de la flèche. */
+  let x1, x2, couleur, marqueur;
+  if (type === 'SS') {
+    x1 = a.x1; x2 = b.x1 - 3;
+    couleur = '#1a7f37'; marqueur = 'pt3';
+  } else if (type === 'FF') {
+    x1 = a.x2; x2 = b.x2 + 3;
+    couleur = '#b36b00'; marqueur = 'pt4';
+  } else {
+    x1 = a.x2; x2 = b.x1 - 3;
+    couleur = '#444'; marqueur = 'pt1';
+  }
+  const y1 = a.ym, y2 = b.ym;
+  let d;
+  if (x2 >= x1 + 4) {
+    const mx = (x1 + x2) / 2;
+    d = `M${x1},${y1} H${mx} V${y2} H${x2}`;
+  } else {
+    const midY = (y1 + y2) / 2;
+    const ext = type === 'FF' ? x2 + 8 : x2 - 8;
+    d = `M${x1},${y1} V${midY} H${ext} V${y2} H${x2}`;
+  }
+  return `<path d="${d}" fill="none" stroke="${couleur}" stroke-width="1.4" marker-end="url(#${marqueur})"/>`;
+}
+function fleche(f, t, type, opts) {
+  /* une flèche = un tracé visible + un tracé invisible élargi pour le survol */
+  opts = opts || {};
+  const a = rectBarre('L' + f), b = rectBarre('L' + t);
+  if (!a || !b) return '';
+  const pair = f + '|' + t;
+  const d = chemin(a, b, type).match(/d="([^"]+)"/)[1];
+  let couleur = '#444', marqueur = 'pt1', dash = '';
+  let titre = `${libelles[f] || f}  ->  ${libelles[t] || t}`;
+  if (opts.typed) {
+    if (type === 'SS') { couleur = '#1a7f37'; marqueur = 'pt3'; }
+    else if (type === 'FF') { couleur = '#b36b00'; marqueur = 'pt4'; }
+  } else {
+    /* style Asana : pointillé si la tâche en amont est terminée (elle ne
+       bloque plus) ; rouge si incohérence de dates (le successeur démarre
+       avant le début du prédécesseur) */
+    const p = parLot[f], s = parLot[t];
+    if (p && s && p.debut && s.debut && s.debut < p.debut) {
+      couleur = '#c62828'; marqueur = 'pt5';
+      titre += '  (incohérence de dates)';
+    }
+    if (p && p.terminee) {
+      dash = ' stroke-dasharray="5,3"';
+      titre += '  (tâche en amont terminée)';
+    }
+  }
+  return `<path class="vis" data-p="${pair}" d="${d}" fill="none" stroke="${couleur}" stroke-width="1.4"${dash} marker-end="url(#${marqueur})"></path>` +
+         `<path class="hit" data-p="${pair}" d="${d}" fill="none"><title>${titre}</title></path>`;
+}
+function dessiner() {
+  const w = Math.max(rows.scrollWidth, inner.offsetWidth);
+  const h = Math.max(rows.scrollHeight, inner.offsetHeight);
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  let out = '<defs>' +
+    '<marker id="pt1" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#444"/></marker>' +
+    '<marker id="pt2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#999"/></marker>' +
+    '<marker id="pt3" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#1a7f37"/></marker>' +
+    '<marker id="pt4" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#b36b00"/></marker>' +
+    '<marker id="pt5" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#c62828"/></marker>' +
+    '</defs>';
+  /* catégorie Test : flèches toujours visibles, avec l'étiquette du type */
+  for (const [f, t, type] of EDGES.tests) {
+    out += fleche(f, t, type, { typed: true });
+  }
+  if (selection) {
+    for (const [f, t] of EDGES.lots) {
+      if (selection.has(f) && selection.has(t)) {
+        out += fleche(f, t, 'FS');
+      }
+    }
+    if (focal) {
+      for (const [f, t] of EDGES.chaines) {
+        const gidLot = f.slice(1, f.lastIndexOf('-'));
+        if (gidLot !== focal) continue;
+        const a = rectBarre(f), b = rectBarre(t);
+        if (!a || !b) continue;
+        const d = chemin(a, b, 'FS').match(/d="([^"]+)"/)[1];
+        out += `<path class="vis" d="${d}" fill="none" stroke="#999" stroke-width="1.2" marker-end="url(#pt2)"/>`;
+      }
+    }
+  }
+  svg.innerHTML = out;
+}
+/* survol d'une flèche : mise en évidence du trait et des deux lots reliés */
+svg.addEventListener('mouseover', e => {
+  const h = e.target;
+  if (!(h instanceof SVGPathElement) || !h.classList.contains('hit')) return;
+  const vis = svg.querySelector(`path.vis[data-p="${h.dataset.p}"]`);
+  if (vis) vis.classList.add('hov');
+  const [f, t] = h.dataset.p.split('|');
+  const rf = document.getElementById('L' + f), rt = document.getElementById('L' + t);
+  if (rf) rf.classList.add('lie');
+  if (rt) rt.classList.add('lie');
+});
+svg.addEventListener('mouseout', () => {
+  svg.querySelectorAll('path.hov').forEach(p => p.classList.remove('hov'));
+  document.querySelectorAll('.lot-row.lie').forEach(r => r.classList.remove('lie'));
+});
+appliquerZoom();
+</script>
+</body>
+</html>

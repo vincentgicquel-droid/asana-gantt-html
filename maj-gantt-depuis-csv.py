@@ -40,7 +40,7 @@ COLONNES = {
     "blocking": ["blocking (dependencies)", "bloque (dependances)"],
     "scope": ["scope"],
     "fiabilite": ["fiabilite"],
-    "selection": ["selection"],
+    "selection": ["surlignage", "selection"],
     "direction": ["direction"],
     "materiel": ["materiel", "materiel "],
     "label_lot": ["numero.nom lot", "numero .nom lot", "numero.nom lot"],

@@ -4,6 +4,9 @@ lots.json
 planning-*.html
 !exemples/planning-*.html
 archives/
+sorties/
 export-*.csv
+export-*.json
 __pycache__/
 *.pyc
+.DS_Store

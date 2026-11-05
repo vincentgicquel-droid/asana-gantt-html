@@ -35,4 +35,11 @@ if [ -n "$DESTINATIONS" ]; then
     done
 fi
 
-python3 "$SCRIPT" "${ARGS[@]}"
+# python3 sous macOS/Linux, python sous Windows (Git Bash)
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON=python3
+else
+    PYTHON=python
+fi
+
+"$PYTHON" "$SCRIPT" "${ARGS[@]}"

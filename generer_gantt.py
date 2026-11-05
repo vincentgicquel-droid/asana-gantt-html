@@ -163,6 +163,37 @@ def workspace_par_defaut():
     return os.environ.get(f"ASANA_WORKSPACE_{env.upper()}") or None
 
 
+def construire_multipart(chemin_fichier, parent_gid):
+    """Corps multipart/form-data pour POST /attachments (norme RFC 2046)."""
+    import uuid
+    limite = "----AsanaGantt" + uuid.uuid4().hex
+    nom = os.path.basename(chemin_fichier)
+    with open(chemin_fichier, "rb") as fh:
+        donnees = fh.read()
+    parties = [
+        f'--{limite}\r\nContent-Disposition: form-data; name="parent"\r\n\r\n{parent_gid}\r\n'.encode(),
+        f'--{limite}\r\nContent-Disposition: form-data; name="name"\r\n\r\n{nom}\r\n'.encode(),
+        (f'--{limite}\r\nContent-Disposition: form-data; name="file"; filename="{nom}"\r\n'
+         f"Content-Type: text/html\r\n\r\n").encode() + donnees + b"\r\n",
+        f"--{limite}--\r\n".encode(),
+    ]
+    return b"".join(parties), f"multipart/form-data; boundary={limite}"
+
+
+def televerser_piece_jointe(chemin_fichier, parent_gid, token):
+    """Téléverse un fichier comme pièce jointe Asana d'une tâche."""
+    corps, ctype = construire_multipart(chemin_fichier, parent_gid)
+    req = urllib.request.Request(
+        "https://app.asana.com/api/1.0/attachments",
+        data=corps,
+        headers={"Authorization": "Bearer " + token, "Content-Type": ctype},
+        method="POST",
+    )
+    ctx = ssl.create_default_context()
+    with urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx)).open(req) as reponse:
+        return json.load(reponse)
+
+
 def extraire_asana(projet_gid, workspace_gid=None):
     """Extraction directe via l'API Asana.
 
@@ -1856,6 +1887,49 @@ def generer_vues(lots, vues, base_nom, dossier_sortie, titre="PLANNING DE PROJET
     return produits
 
 
+def tester_connexion(args):
+    """Diagnostic réseau et configuration, sans génération de fichiers :
+    config.env, token, proxy, environnement, joignabilité de l'API et du projet."""
+    print("=== Test connexion Asana ===")
+    print(f"config.env      : {CONFIG_ENV_TROUVE or 'non trouvé (cherche à côté du script + parents)'}")
+    token = os.environ.get("ASANA_TOKEN")
+    print(f"ASANA_TOKEN     : {'présent' if token else 'ABSENT'}")
+    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
+    print(f"HTTPS_PROXY     : {proxy or 'aucun (accès direct)'}")
+    env = (os.environ.get("ASANA_ENV") or "sandbox").strip().lower()
+    ws = workspace_par_defaut()
+    print(f"environnement   : {env} -> workspace {ws or 'INCONNU'}")
+    if not token or not ws:
+        sys.exit("Compléter la configuration ci-dessus avant de tester.")
+    ctx = ssl.create_default_context()
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+
+    def appeler(chemin):
+        req = urllib.request.Request("https://app.asana.com/api/1.0/" + chemin,
+                                     headers={"Authorization": "Bearer " + token})
+        return json.load(opener.open(req))
+
+    try:
+        moi = appeler("users/me?opt_fields=name,workspaces.name,workspaces.gid")["data"]
+        noms = ", ".join(w.get("name") or "?" for w in moi.get("workspaces") or [])
+        print(f"API joignable   : OUI (token de {moi.get('name')})")
+        print(f"workspaces vus  : {noms or 'AUCUN'}")
+    except urllib.error.HTTPError as e:
+        sys.exit(f"API joignable   : NON (HTTP {e.code} : {e.read().decode()[:200]})")
+    except Exception as e:
+        sys.exit(f"API joignable   : NON ({e}) : problème réseau, proxy ou pare-feu.")
+    if args.projet:
+        try:
+            p = appeler(f"projects/{args.projet}?opt_fields=name,workspace.name")["data"]
+            print(f"projet {args.projet} : OUI (\"{p.get('name')}\" dans {p.get('workspace', {}).get('name', '?')})")
+        except urllib.error.HTTPError as e:
+            print(f"projet {args.projet} : NON (HTTP {e.code} : pas de droits sur ce projet ou mauvais GID)")
+        except Exception as e:
+            print(f"projet {args.projet} : NON ({e})")
+    else:
+        print("projet          : relancer avec --projet <gid> pour tester un projet précis")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sans-extract", action="store_true", help="régénérer depuis le JSON intermédiaire local sans appeler l'API")
@@ -1875,11 +1949,19 @@ def main():
                         help=f"dossier de sortie des HTML (défaut : {DOSSIER_SORTIE})")
     parser.add_argument("--destination", action="append", default=None,
                         help="destination supplémentaire de copie des HTML (option répétable)")
+    parser.add_argument("--attache", action="append", default=None,
+                        help="GID d'une tâche Asana à laquelle téléverser chaque HTML généré comme pièce jointe (option répétable)")
+    parser.add_argument("--test-connexion", action="store_true",
+                        help="diagnostic config/proxy/pare-feu sans générer de fichiers (combinaison utile avec --projet)")
     args = parser.parse_args()
 
     charger_config_env()
     if args.env:
         os.environ["ASANA_ENV"] = args.env
+
+    if args.test_connexion:
+        tester_connexion(args)
+        return
 
     vues = [v.strip().lower() for v in args.vues.split(",") if v.strip()]
 
@@ -1912,6 +1994,19 @@ def main():
             print(f"     copié vers {dest}")
     print(f"     {len(lots)} lots, {sum(len(l['deps']) for l in lots)} dépendances, "
           f"{sum(len(l['sous_taches']) for l in lots)} sous-tâches")
+
+    if args.attache:
+        token = os.environ.get("ASANA_TOKEN")
+        if not token:
+            sys.exit("ASANA_TOKEN requis pour --attache (config.env ou variable d'environnement).")
+        for chemin, vue, copies in produits:
+            for tache_gid in args.attache:
+                try:
+                    televerser_piece_jointe(chemin, tache_gid, token)
+                    print(f"OK [piece jointe] : {os.path.basename(chemin)} -> tache {tache_gid}")
+                except Exception as e:
+                    print(f"ATTENTION : téléversement de {os.path.basename(chemin)} "
+                          f"vers la tache {tache_gid} impossible : {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

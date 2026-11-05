@@ -129,7 +129,13 @@ def charger_config_env():
     for _ in range(6):
         chemin = os.path.join(dossier, "config.env")
         if os.path.isfile(chemin):
-            with open(chemin, encoding="utf-8") as fh:
+            global CONFIG_ENV_TROUVE
+            CONFIG_ENV_TROUVE = chemin
+            try:
+                fh = open(chemin, encoding="utf-8-sig")
+            except UnicodeDecodeError:
+                fh = open(chemin, encoding="latin-1")
+            with fh:
                 for ligne in fh:
                     ligne = ligne.strip()
                     if not ligne or ligne.startswith("#") or "=" not in ligne:
@@ -143,6 +149,9 @@ def charger_config_env():
         if parent == dossier:
             break
         dossier = parent
+
+
+CONFIG_ENV_TROUVE = None
 
 
 def workspace_par_defaut():
@@ -164,7 +173,17 @@ def extraire_asana(projet_gid, workspace_gid=None):
     """
     token = os.environ.get("ASANA_TOKEN")
     if not token:
-        sys.exit("Variable ASANA_TOKEN absente : exporter le token avant l'extraction.")
+        if CONFIG_ENV_TROUVE:
+            avec_token = any(l.strip().startswith("ASANA_TOKEN=")
+                             for l in open(CONFIG_ENV_TROUVE, encoding="utf-8-sig", errors="replace"))
+            if avec_token:
+                sys.exit(f"ASANA_TOKEN vide ou illisible dans {CONFIG_ENV_TROUVE} "
+                         "(vérifier la ligne ASANA_TOKEN=..., encodage UTF-8).")
+            sys.exit(f"config.env trouvé ({CONFIG_ENV_TROUVE}) mais sans ASANA_TOKEN : "
+                     "ajouter la ligne ASANA_TOKEN=<personal access token>.")
+        sys.exit("Variable ASANA_TOKEN absente et aucun config.env trouvé à côté du "
+                 "script ni dans un dossier parent (fichier config.env, ligne "
+                 "ASANA_TOKEN=..., encodage UTF-8, pas config.env.txt).")
     workspace_gid = workspace_gid or workspace_par_defaut()
     if not workspace_gid:
         sys.exit("Workspace inconnu : indiquer --workspace, ASANA_WORKSPACE "

@@ -121,19 +121,54 @@ def http_get_json(opener, url, token):
     return json.load(opener.open(req))
 
 
+def charger_config_env():
+    """Complète l'environnement avec un fichier config.env trouvé dans le
+    dossier du script ou un dossier parent (ASANA_TOKEN, ASANA_ENV,
+    ASANA_WORKSPACE*...). Les variables déjà présentes ne sont pas écrasées."""
+    dossier = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(6):
+        chemin = os.path.join(dossier, "config.env")
+        if os.path.isfile(chemin):
+            with open(chemin, encoding="utf-8") as fh:
+                for ligne in fh:
+                    ligne = ligne.strip()
+                    if not ligne or ligne.startswith("#") or "=" not in ligne:
+                        continue
+                    cle, valeur = ligne.split("=", 1)
+                    cle, valeur = cle.strip(), valeur.strip()
+                    if cle and cle not in os.environ and valeur:
+                        os.environ[cle] = valeur
+            break
+        parent = os.path.dirname(dossier)
+        if parent == dossier:
+            break
+        dossier = parent
+
+
+def workspace_par_defaut():
+    """GID du workspace : ASANA_WORKSPACE, sinon ASANA_WORKSPACE_<ASANA_ENV>
+    (kit : ASANA_ENV=sandbox|prod, sandbox par défaut)."""
+    if os.environ.get("ASANA_WORKSPACE"):
+        return os.environ["ASANA_WORKSPACE"]
+    env = (os.environ.get("ASANA_ENV") or "sandbox").strip().lower()
+    return os.environ.get(f"ASANA_WORKSPACE_{env.upper()}") or None
+
+
 def extraire_asana(projet_gid, workspace_gid=None):
     """Extraction directe via l'API Asana.
 
     Configuration par variables d'environnement :
       - ASANA_TOKEN        : Personal Access Token (obligatoire)
-      - ASANA_WORKSPACE    : GID du workspace (si non fourni via --workspace)
+      - ASANA_WORKSPACE    : GID du workspace (si non fourni via --workspace) ;
+        sinon ASANA_WORKSPACE_<ASANA_ENV> (ASANA_ENV=sandbox|prod, défaut sandbox)
     """
     token = os.environ.get("ASANA_TOKEN")
     if not token:
         sys.exit("Variable ASANA_TOKEN absente : exporter le token avant l'extraction.")
-    workspace_gid = workspace_gid or os.environ.get("ASANA_WORKSPACE")
+    workspace_gid = workspace_gid or workspace_par_defaut()
     if not workspace_gid:
-        sys.exit("Variable ASANA_WORKSPACE absente : indiquer le GID du workspace.")
+        sys.exit("Workspace inconnu : indiquer --workspace, ASANA_WORKSPACE "
+                 "ou ASANA_WORKSPACE_SANDBOX/PROD (avec ASANA_ENV).")
 
     ctx = ssl.create_default_context()
     opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
@@ -1809,7 +1844,9 @@ def main():
     parser.add_argument("--json", help="générer depuis un export JSON du projet Asana (menu projet > Exporter > JSON)")
     parser.add_argument("--vierge", action="store_true", help="générer un modèle HTML vierge (aucune donnée, à remplir par le script CSV)")
     parser.add_argument("--projet", help="GID du projet Asana (requis pour l'extraction API)")
-    parser.add_argument("--workspace", default=None, help="GID du workspace Asana (défaut : variable ASANA_WORKSPACE)")
+    parser.add_argument("--workspace", default=None, help="GID du workspace Asana (défaut : ASANA_WORKSPACE, sinon ASANA_WORKSPACE_<env>)")
+    parser.add_argument("--env", choices=["sandbox", "prod"], default=None,
+                        help="environnement Asana : choisit ASANA_WORKSPACE_<env> si ASANA_WORKSPACE absent (défaut : ASANA_ENV, sinon sandbox)")
     parser.add_argument("--titre", default="PLANNING DE PROJET", help="titre affiché en haut du planning")
     parser.add_argument("--libelle-projet", default="", help="libellé du projet stocké dans les données")
     parser.add_argument("--vues", default="synthese,jalons",
@@ -1820,6 +1857,10 @@ def main():
     parser.add_argument("--destination", action="append", default=None,
                         help="destination supplémentaire de copie des HTML (option répétable)")
     args = parser.parse_args()
+
+    charger_config_env()
+    if args.env:
+        os.environ["ASANA_ENV"] = args.env
 
     vues = [v.strip().lower() for v in args.vues.split(",") if v.strip()]
 

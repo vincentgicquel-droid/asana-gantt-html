@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import ssl
 import sys
 import time
@@ -62,18 +63,38 @@ PALETTE_SCOPES = [
 
 SEUIL_ATTENTION = 8  # nb de lots en aval pour l'icone d'alerte
 
-# couleurs d'en-tête : une par trimestre (cyclées), tonalités moyennes
-# à sombres pour garder le texte blanc lisible et différencier chaque trimestre
-PALETTE_TRIMESTRES = [
-    "#1b2a6b",  # bleu nuit
-    "#2e7d32",  # vert
-    "#6a1b9a",  # violet
-    "#b36b00",  # ocre
-    "#00838f",  # sarcelle
-    "#ad1457",  # framboise
-    "#37474f",  # bleu-gris
-    "#5c6bc0",  # indigo
+# surlignage jaune du nom de lot : champ personnalisé renseigné = jaune.
+# Si le champ principal est absent du projet, repli sur le champ de secours.
+CHAMP_SURLIGNAGE = "Surlignage"
+CHAMP_SURLIGNAGE_REPLI = "Séléction"
+
+# dossier par défaut des fichiers HTML générés (modifiable par --dossier) ;
+# peut pointer vers un dossier synchronisé (share réseau, SharePoint...)
+DOSSIER_SORTIE = os.path.join(DOSSIER, "sorties")
+
+# destinations supplémentaires : chaque HTML généré y est copié (chemins
+# absolus, par exemple un dossier synchronisé SharePoint). Modifiable ici
+# ou par l'option --destination (répétable).
+DESTINATIONS = [
+    # r"/chemin/vers/dossier/partage",
 ]
+
+# frise des trimestres : une couleur de base par année, déclinée en 4 teintes
+# (une par trimestre, du plus sombre au plus clair) pour éviter l'arc-en-ciel.
+# Couleur dédiée par année si définie, sinon palette annuelle cyclée.
+COULEURS_ANNUELLES = {
+    2025: "#00838f",  # sarcelle
+    2026: "#1b2a6b",  # bleu nuit
+    2027: "#2e7d32",  # vert
+    2028: "#6a1b9a",  # violet
+    2029: "#37474f",  # bleu-gris
+}
+PALETTE_ANNUELLES = [
+    "#1b2a6b", "#2e7d32", "#6a1b9a", "#b36b00",
+    "#00838f", "#ad1457", "#37474f", "#5c6bc0",
+]
+# nuance par trimestre : 1.0 = couleur de base, < 1 assombrit, > 1 éclaircit
+NUANCES_TRIMESTRES = [0.80, 0.93, 1.08, 1.24]
 
 # noms raccourcis pour la colonne gauche (le nom complet reste en info-bulle
 # et dans les données) : utile quand une catégorie n'a que peu de lignes
@@ -130,6 +151,23 @@ def extraire_asana(projet_gid, workspace_gid=None):
             break
         url = base + "&offset=" + urllib.parse.quote(nxt["offset"])
 
+    # ordre des catégories : ordre des options du champ Scope dans Asana
+    ordre_scopes = []
+    try:
+        d = http_get_json(
+            opener,
+            f"https://app.asana.com/api/1.0/projects/{projet_gid}/custom_field_settings"
+            "?opt_fields=custom_field.name,custom_field.enum_options.name",
+            token,
+        )
+        for reglage in d.get("data", []):
+            cf = reglage.get("custom_field") or {}
+            if cf.get("name") == "Scope":
+                ordre_scopes = [o["name"] for o in cf.get("enum_options") or []]
+                break
+    except Exception:
+        pass  # ordre non disponible : repli sur l'ordre par défaut
+
     lots = []
     for t in tasks:
         lots.append(
@@ -137,10 +175,11 @@ def extraire_asana(projet_gid, workspace_gid=None):
                 "gid": t["gid"],
                 "label": (cfval(t, "Numéro.Nom Lot") or t["name"]).strip(),
                 "scope": cfval(t, "Scope") or "Sans scope",
-                "selection": cfval(t, "Séléction"),
+                "selection": cfval(t, CHAMP_SURLIGNAGE) or cfval(t, CHAMP_SURLIGNAGE_REPLI),
                 "direction": cfval(t, "Direction"),
                 "materiel": cfval(t, "Matériel "),
                 "start": t.get("start_on") or t.get("due_on"),
+                "fin_asana": t.get("due_on"),
                 "terminee": bool(t.get("completed")),
                 "blocked_by": [x.strip() for x in (cfval(t, "Blocked By (Dependencies)") or "").split(",") if x.strip()],
                 "sous_taches": [],
@@ -169,7 +208,156 @@ def extraire_asana(projet_gid, workspace_gid=None):
         if lot["label"] not in lot["alias"]:
             lot["alias"].append(lot["label"])
 
-    return lots
+    return lots, ordre_scopes
+
+
+# champs personnalisés lus dans l'export JSON : nom logique -> libellés Asana
+# (comparés sans accents ni casse). "selection" pilote le surlignage jaune :
+# champ Surlignage en priorité, repli sur Séléction (comportement historique).
+CHAMPS_EXPORT = {
+    "label_lot": ["Numéro.Nom Lot"],
+    "scope": ["Scope"],
+    "fiabilite": ["Fiabilité"],
+    "selection": [CHAMP_SURLIGNAGE, CHAMP_SURLIGNAGE_REPLI],
+    "direction": ["Direction"],
+    "materiel": ["Matériel", "Matériel "],
+    "blocked_by": ["Blocked By (Dependencies)", "Bloquée par (dépendances)"],
+}
+
+
+def valeur_champ(cf):
+    """Valeur affichable d'un champ personnalisé, quel que soit son type."""
+    for cle in ("display_value", "text_value"):
+        if cf.get(cle) is not None:
+            return str(cf[cle])
+    ev = cf.get("enum_value")
+    if ev:
+        return ev.get("name")
+    mev = cf.get("multi_enum_values")
+    if mev:
+        return ", ".join(o.get("name", "") for o in mev if o.get("name"))
+    nv = cf.get("number_value")
+    if nv is not None:
+        return str(nv)
+    return None
+
+
+def _lire_tache_export(t):
+    """Champs standards d'une tâche d'export JSON Asana."""
+    parent = t.get("parent")
+    return {
+        "gid": t.get("gid") or (t.get("name") or "").strip(),
+        "nom": (t.get("name") or "").strip(),
+        "debut": t.get("start_on") or (t.get("start_at") or "")[:10] or None,
+        "fin": t.get("due_on") or (t.get("due_at") or "")[:10] or None,
+        "terminee": bool(t.get("completed") or t.get("completed_at")),
+        "subtasks": t.get("subtasks") or [],
+        "parent": parent.get("gid") if isinstance(parent, dict) else parent,
+        "deps_gids": [d.get("gid") if isinstance(d, dict) else d
+                      for d in (t.get("dependencies") or [])],
+        "custom_fields": t.get("custom_fields") or [],
+    }
+
+
+def charger_export_json(chemin):
+    """Charge un export JSON du projet Asana (menu projet > Exporter > JSON).
+
+    Renvoie (lots, ordre des scopes) : l'ordre des catégories est celui des
+    options du champ Scope dans Asana (enum_options du premier champ Scope
+    rencontré dans l'export).
+    """
+    with open(chemin, encoding="utf-8") as fh:
+        doc = json.load(fh)
+
+    taches = doc.get("data") if isinstance(doc, dict) else doc
+    if not isinstance(taches, list) or not taches:
+        sys.exit(
+            "Structure inattendue : le fichier ne contient pas de liste de tâches. "
+            "Vérifier que le fichier vient bien d'un export JSON Asana "
+            '(une clé "data" avec un tableau de tâches).'
+        )
+
+    lues = [_lire_tache_export(t) for t in taches if isinstance(t, dict)]
+    par_gid = {t["gid"]: t for t in lues if t["gid"]}
+
+    ordre_scopes = []
+    for t in lues:
+        for cf in t["custom_fields"]:
+            if norm(cf.get("name") or "") == norm("Scope"):
+                opts = cf.get("enum_options") or []
+                if opts:
+                    ordre_scopes = [o.get("name") for o in opts if o.get("name")]
+                break
+        if ordre_scopes:
+            break
+
+    lots_bruts, sous_par_parent = [], {}
+    for t in lues:
+        if not t["nom"]:
+            continue
+        if t["parent"] and t["parent"] in par_gid:
+            sous_par_parent.setdefault(t["parent"], []).append(t)
+        else:
+            lots_bruts.append(t)
+
+    if not lots_bruts:
+        sys.exit("Aucune tâche de premier niveau trouvée dans l'export.")
+
+    lots = []
+    for t in lots_bruts:
+        champs = {}
+        for cf in t["custom_fields"]:
+            champs[norm(cf.get("name") or "")] = valeur_champ(cf)
+
+        vals, label_lot = {}, None
+        for cle, variantes in CHAMPS_EXPORT.items():
+            v = next((champs[norm(nom)] for nom in variantes
+                      if norm(nom) in champs and champs[norm(nom)] is not None), None)
+            if cle == "label_lot":
+                label_lot = v
+            else:
+                vals[cle] = v
+
+        # sous-tâches imbriquées, plus celles rattachées par gid (dédupliquées)
+        sts = [_lire_tache_export(s) for s in t["subtasks"] if isinstance(s, dict)]
+        vus = {s["gid"] for s in sts if s["gid"]}
+        for s in sous_par_parent.get(t["gid"], []):
+            if not s["gid"] or s["gid"] not in vus:
+                sts.append(s)
+                vus.add(s["gid"])
+
+        sous_taches = []
+        for s in sts:
+            if not s["nom"]:
+                continue
+            debut = s["debut"]
+            sous_taches.append({"nom": s["nom"], "debut": debut, "fin": s["fin"] or debut})
+
+        blocked = [x.strip() for x in (vals.get("blocked_by") or "").split(",") if x.strip()]
+        # dépendances natives Asana : gids -> noms de tâches
+        for g in t.get("deps_gids") or []:
+            cible = par_gid.get(g)
+            if cible and cible["nom"]:
+                blocked.append(cible["nom"])
+
+        lots.append({
+            "gid": t["gid"] or t["nom"],
+            "label": label_lot or t["nom"],
+            "scope": vals.get("scope") or "Sans scope",
+            "selection": vals.get("selection") or None,
+            "direction": vals.get("direction") or None,
+            "materiel": vals.get("materiel") or None,
+            "start": t["debut"],
+            "fin_asana": t["fin"],
+            "terminee": t["terminee"],
+            "blocked_by": blocked,
+            "sous_taches": sous_taches,
+            "alias": [t["nom"]],
+        })
+
+    resoudre_dependances(lots)
+    calculer_fins(lots)
+    return lots, ordre_scopes
 
 
 def resoudre_dependances(lots):
@@ -204,6 +392,8 @@ def resoudre_dependances(lots):
 
 def calculer_fins(lots):
     """Date de fin du lot :
+      0. due date Asana du lot (fin_asana), quand elle existe et est
+         cohérente (>= début) : comportement fidèle à Asana ;
       1. plus grande date de fin réelle des sous-tâches (due_on) ;
       2. date de début du premier lot successeur, moins un jour ;
       3. début + 45 jours par défaut.
@@ -218,6 +408,15 @@ def calculer_fins(lots):
                 successeurs[d].append(l["gid"])
 
     for l in lots:
+        # due date Asana du lot : prioritaire quand cohérente. Strictement
+        # postérieure au début : un lot sans début saisie prend sa due date
+        # comme début (repli du chemin API), il ne faut pas le réduire à
+        # un bandeau d'un jour
+        fin_asana = l.get("fin_asana")
+        if fin_asana and l["start"] and fin_asana > l["start"]:
+            l["end"] = fin_asana
+            l["fin_estimee"] = False
+            continue
         fins = [s["fin"] for s in l["sous_taches"] if s["fin"]]
         fin = max(fins) if fins else None
         if fin and l["start"] and fin <= l["start"]:
@@ -240,6 +439,42 @@ def couleur_scope(index, nom):
     return COULEURS_SCOPES.get(nom) or PALETTE_SCOPES[index % len(PALETTE_SCOPES)]
 
 
+def _mélanger_hex(hex_couleur, facteur):
+    """Assombrit (facteur < 1) ou éclaircit (facteur > 1) une couleur #rrggbb."""
+    r, g, b = (int(hex_couleur[i:i + 2], 16) for i in (1, 3, 5))
+    if facteur <= 1:
+        r, g, b = (int(c * facteur) for c in (r, g, b))
+    else:
+        f = min(facteur - 1, 1)
+        r, g, b = (int(c + (255 - c) * f) for c in (r, g, b))
+    return "#{:02x}{:02x}{:02x}".format(min(r, 255), min(g, 255), min(b, 255))
+
+
+def _luminance(hex_couleur):
+    r, g, b = (int(hex_couleur[i:i + 2], 16) for i in (1, 3, 5))
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
+
+
+def couleur_trimestre(annee, trimestre):
+    """Couleur d'un trimestre : gamme de l'année, nuance selon le trimestre.
+    Retourne (fond, couleur du texte) pour garder un texte lisible."""
+    base = COULEURS_ANNUELLES.get(annee) or PALETTE_ANNUELLES[annee % len(PALETTE_ANNUELLES)]
+    fond = _mélanger_hex(base, NUANCES_TRIMESTRES[(trimestre - 1) % 4])
+    return fond, ("#fff" if _luminance(fond) < 0.62 else "#222")
+
+
+def ordonner_scopes(lots, ordre_scopes=None):
+    """Ordre d'affichage des catégories :
+      1. ordre fourni (ordre de la colonne Scope dans Asana) ;
+      2. sinon ordre historique ORDRE_SCOPES ;
+      3. catégories restantes par ordre alphabétique."""
+    presents = {l["scope"] for l in lots}
+    base = list(ordre_scopes) if ordre_scopes else ORDRE_SCOPES
+    ordre = [s for s in base if s in presents]
+    ordre += sorted(presents - set(ordre))
+    return ordre
+
+
 def axe_temporel(lots):
     """Bornes de l'axe (trimestres) ; plage par défaut si aucune date."""
     debuts = [date.fromisoformat(l["start"]) for l in lots if l["start"]]
@@ -253,12 +488,11 @@ def axe_temporel(lots):
     return min_q, max_q
 
 
-def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet=""):
+def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scopes=None):
     par_gid = {l["gid"]: l for l in lots}
     aval = Counter(d for l in lots for d in l["deps"])
 
-    scopes = [s for s in ORDRE_SCOPES if any(l["scope"] == s for l in lots)]
-    scopes += sorted({l["scope"] for l in lots if l["scope"] not in ORDRE_SCOPES})
+    scopes = ordonner_scopes(lots, ordre_scopes)
 
     min_q, max_q = axe_temporel(lots)
 
@@ -285,16 +519,17 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet=""):
         return round(((date.fromisoformat(iso) - t0).days / span) * 100, 3)
 
     # hauteurs entières : les trois zones partagent exactement les mêmes lignes
-    h_dispo = 884
+    h_dispo = 891
     h_groupe = 26  # ligne de catégorie plus épaisse, comme sur le PowerPoint
     n_lots_aff = max(len(lots), 1)
     h_lot = (h_dispo - len(scopes) * h_groupe) // n_lots_aff
     h_bonus = (h_dispo - len(scopes) * h_groupe) - h_lot * len(lots)  # pixels restants
 
     qcols = "".join(
-        f'<div class="qcol" style="background:{PALETTE_TRIMESTRES[i % len(PALETTE_TRIMESTRES)]}">'
-        f'<span>T{(q.month - 1) // 3 + 1}</span><span>{q.year}</span></div>'
-        for i, q in enumerate(quarters)
+        (lambda fond, txt: f'<div class="qcol" style="background:{fond};color:{txt}">'
+         f'<span>T{(q.month - 1) // 3 + 1}</span><span>{q.year}</span></div>')(
+            *couleur_trimestre(q.year, (q.month - 1) // 3 + 1))
+        for q in quarters
     )
     qgrid = "".join(
         f'<div class="qsep{" q1" if q.month == 1 else ""}" style="left:{x(q.isoformat())}%"></div>'
@@ -414,8 +649,8 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet=""):
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   html, body {{ width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }}
   .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }}
-  .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }}
-  h1 {{ font-size: 33px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
+  .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }}
+  h1 {{ font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
   .zoom {{ display: flex; gap: 6px; align-items: center; }}
   .zoom button {{ width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }}
   .zoom button:hover {{ background: #eee; }}
@@ -632,7 +867,7 @@ EDGES_TEST = [
 ]
 
 
-def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_projet=""):
+def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_projet="", ordre_scopes=None):
     """Vue Gantt détaillée : lots + sous-tâches dépliées, avec flèches de
     dépendances tracées (SVG) comme sur un vrai Gantt.
 
@@ -645,9 +880,7 @@ def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_proj
     lots_aff = construire_lots_test() + lots
     par_gid = {l["gid"]: l for l in lots_aff}
     aval = Counter(d for l in lots_aff for d in l["deps"])
-
-    scopes = [s for s in ORDRE_SCOPES if any(l["scope"] == s for l in lots_aff)]
-    scopes += sorted({l["scope"] for l in lots_aff if l["scope"] not in ORDRE_SCOPES})
+    scopes = ordonner_scopes(lots_aff, ordre_scopes)
 
     debuts = [date.fromisoformat(l["start"]) for l in lots_aff if l["start"]]
     min_q = date(min(debuts).year, ((min(debuts).month - 1) // 3) * 3 + 1, 1)
@@ -681,9 +914,10 @@ def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_proj
     h_st = 13
 
     qcols = "".join(
-        f'<div class="qcol" style="background:{PALETTE_TRIMESTRES[i % len(PALETTE_TRIMESTRES)]}">'
-        f'<span>T{(q.month - 1) // 3 + 1}</span><span>{q.year}</span></div>'
-        for i, q in enumerate(quarters)
+        (lambda fond, txt: f'<div class="qcol" style="background:{fond};color:{txt}">'
+         f'<span>T{(q.month - 1) // 3 + 1}</span><span>{q.year}</span></div>')(
+            *couleur_trimestre(q.year, (q.month - 1) // 3 + 1))
+        for q in quarters
     )
     qgrid = "".join(
         f'<div class="qsep{" q1" if q.month == 1 else ""}" style="left:{x(q.isoformat())}%"></div>'
@@ -837,8 +1071,8 @@ def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_proj
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   html, body {{ width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }}
   .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }}
-  .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }}
-  h1 {{ font-size: 30px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
+  .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }}
+  h1 {{ font-size: 24px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
   .zoom {{ display: flex; gap: 6px; align-items: center; }}
   .zoom button {{ width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }}
   .zoom .niveau {{ font-size: 12px; color: #555; width: 40px; text-align: center; }}
@@ -1199,50 +1433,425 @@ appliquerZoom();
     return html
 
 
+def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_projet="", ordre_scopes=None):
+    """Vue jalons : uniquement les bandeaux de catégories (un par Scope,
+    alignés sur les trimestres comme en vue synthèse), sans les lignes de
+    tâches. Les jalons (sous-tâches dont le nom contient "Prêt à l'usage")
+    sont affichés en repère daté sur le bandeau de leur catégorie, nom visible
+    sans survol (capture d'écran). Les jalons sans date sont ignorés.
+
+    Affichage : mise à l'échelle automatique à 100 % du navigateur (format
+    16:9, marge de sécurité de 10 % sur la hauteur) et zoom horizontal
+    (boutons ou ctrl/cmd + molette) pour détailler les trimestres.
+    Les libellés sont répartis sur plusieurs couloirs verticaux pour
+    éviter les superpositions."""
+    def est_jalon(nom):
+        n = unicodedata.normalize("NFD", (nom or "").lower())
+        n = "".join(c for c in n if unicodedata.category(c) != "Mn")
+        return "pret a l usage" in re.sub(r"[^a-z0-9]+", " ", n)
+
+    jalons_par_scope = {}
+    for l in lots:
+        for s in l["sous_taches"]:
+            # un jalon Asana n'a qu'une date : son échéance (due_on). On prend
+            # donc la fin en priorité, repli sur le début
+            d_j = s.get("fin") or s.get("debut")
+            if d_j and est_jalon(s.get("nom", "")):
+                jalons_par_scope.setdefault(l["scope"], []).append({"nom": s["nom"], "date": d_j})
+    for v in jalons_par_scope.values():
+        v.sort(key=lambda j: j["date"])
+
+    scopes = ordonner_scopes(lots, ordre_scopes)
+    min_q, max_q = axe_temporel(lots)
+
+    def trimestre_suivant(d):
+        return date(d.year + (1 if d.month > 9 else 0), ((d.month - 1) // 3) * 3 + 4 if d.month <= 9 else 1, 1)
+
+    def debut_trimestre(d):
+        return date(d.year, ((d.month - 1) // 3) * 3 + 1, 1)
+
+    def fin_trimestre(d):
+        return trimestre_suivant(debut_trimestre(d)) - timedelta(days=1)
+
+    quarters = []
+    q = min_q
+    while q <= max_q:
+        quarters.append(q)
+        q = trimestre_suivant(q)
+
+    t0 = min_q
+    t1 = trimestre_suivant(max_q)
+    span = (t1 - t0).days
+
+    def x(iso):
+        return round(((date.fromisoformat(iso) - t0).days / span) * 100, 3)
+
+    h_dispo = 958  # remplit exactement le cadre 16:9 (1080 - titres - en-tête)
+    LARGEUR_TL = 1710  # px de timeline au zoom 1x (1920 - marges - colonne gauche)
+
+    def largeur_libelle(texte):
+        # estimation calibrée sur le rendu réel mesuré (Arial 10 px), marge 5 %
+        return round((16 + len(texte) * 4.6) / LARGEUR_TL * 100, 2)
+
+    def jjmm(iso):
+        return f"{iso[8:10]}/{iso[5:7]}"
+
+    # hauteurs de lignes proportionnelles au besoin : les jalons dont les
+    # dates sont plus proches que la largeur d'un libellé se chevauchent tous,
+    # il faut un couloir par jalon simultané (13 px par couloir, de part et
+    # d'autre de la barre centrale qui occupe 45-55 % de la ligne)
+    ESPACEMENT = 13.0
+    lignes = []
+    for s in scopes:
+        jalons_s = jalons_par_scope.get(s, [])
+        dates_j = [date.fromisoformat(j["date"]) for j in jalons_s]
+        if jalons_s:
+            l_moy = sum(largeur_libelle(f'{jjmm(j["date"])} · {j["nom"]}') for j in jalons_s) / len(jalons_s)
+            w_days = l_moy / 100 * span
+            clique = max(sum(1 for d2 in dates_j if abs((d2 - d).days) < w_days) for d in dates_j)
+            n_couloirs = clique + (clique % 2)  # pair : zones symétriques
+            h_min = ((n_couloirs // 2) * ESPACEMENT + 12) / 0.45
+        else:
+            n_couloirs, h_min = 2, 34.0
+        lignes.append({"scope": s, "jalons": jalons_s, "n_couloirs": n_couloirs, "h_min": h_min})
+    total_min = sum(l["h_min"] for l in lignes)
+    # répartition au pixel : part proportionnelle + reste aux plus grandes fractions
+    brutes = [l["h_min"] * h_dispo / total_min for l in lignes]
+    hauteurs = [int(b) for b in brutes]
+    reste_px = h_dispo - sum(hauteurs)
+    for i in sorted(range(len(brutes)), key=lambda i: brutes[i] - hauteurs[i], reverse=True)[:reste_px]:
+        hauteurs[i] += 1
+
+    qcols = "".join(
+        (lambda fond, txt: f'<div class="qcol" style="background:{fond};color:{txt}">'
+         f'<span>T{(q.month - 1) // 3 + 1}</span><span>{q.year}</span></div>')(
+            *couleur_trimestre(q.year, (q.month - 1) // 3 + 1))
+        for q in quarters
+    )
+    qgrid = "".join(
+        f'<div class="qsep{" q1" if q.month == 1 else ""}" style="left:{x(q.isoformat())}%"></div>'
+        for q in quarters[1:]
+    )
+
+    rows = []
+    nb_jalons = 0
+    for i_s, s in enumerate(scopes):
+        c = couleur_scope(i_s, s)
+        sous = [l for l in lots if l["scope"] == s]
+        debs_g = [date.fromisoformat(l["start"]) for l in sous if l["start"]]
+        fins_g = [date.fromisoformat(l["end"]) for l in sous if l["end"]]
+        bande = ""
+        if debs_g and fins_g:
+            g_left = x(debut_trimestre(min(debs_g)).isoformat())
+            g_right = x(fin_trimestre(max(fins_g)).isoformat())
+            bande = (
+                f'<span class="bande" style="background:{c};'
+                f'left:{g_left}%;width:{max(g_right - g_left, 0.15)}%"></span>'
+            )
+
+        marqueurs = ""
+        ligne = lignes[i_s]
+        jalons_s = ligne["jalons"]
+        n_couloirs = ligne["n_couloirs"]
+        # occupation par couloir : liste d'intervalles [gauche, droite] posés,
+        # car un libellé à droite du losange ne bloque pas sa gauche
+        occupation = [[] for _ in range(n_couloirs)]
+
+        def couloir_libre(k, a, b):
+            return all(b < i0 - 0.25 or a > i1 + 0.25 for i0, i1 in occupation[k])
+
+        def pousser_droite(k, deb, largeur):
+            """Plus petite position >= deb où l'intervalle tient dans le couloir."""
+            deb_p = deb
+            for i0, i1 in sorted(occupation[k]):
+                if deb_p < i1 + 0.25 and deb_p + largeur > i0 - 0.25:
+                    deb_p = i1 + 0.25
+            return deb_p
+
+        # centres de couloirs en px, répartis de part et d'autre de la barre
+        # (45-55 %), espacés d'au moins ESPACEMENT, marge de 9 px en haut/bas
+        h_ligne = hauteurs[i_s]
+        m = n_couloirs // 2
+        zone = 0.45 * h_ligne
+        pas = (zone - 12) / m if m else 0
+        centres = [9 + (i + 0.5) * pas for i in range(m)]
+        centres += [h_ligne - 9 - (i + 0.5) * pas for i in range(m)]
+        centres_pct = [round(c / h_ligne * 100, 2) for c in centres]
+        # recherche des couloirs du centre (sur le bandeau) vers l'extérieur
+        ordre_couloirs = sorted(range(n_couloirs), key=lambda k: abs(centres_pct[k] - 50))
+        for j in jalons_s:
+            nb_jalons += 1
+            jd = x(j["date"])
+            texte = f'{jjmm(j["date"])} · {j["nom"]}'
+            l_pct = largeur_libelle(texte)
+            # placement du libellé : à droite du losange de préférence (en le
+            # poussant si un voisin occupe la place), à gauche en secours
+            # (texte se terminant sur le losange), ce qui double la capacité
+            # autour des clusters de dates (fins de trimestre). bord droit du
+            # cadre : bascule à gauche d'office
+            inv = jd + l_pct > 99.5
+            choix = None
+            if not inv:
+                deb = jd + 0.4
+                for k in ordre_couloirs:
+                    deb_p = pousser_droite(k, deb, l_pct)
+                    if deb_p + l_pct <= 100.2:
+                        pousse = deb_p - deb
+                        if choix is None or pousse < choix[1]:
+                            choix = (k, deb_p, False)
+                        if pousse == 0:
+                            break
+            if choix is None:
+                # côté gauche : l'intervalle [fin_g - l, fin_g] doit être libre
+                fin_g = jd - 0.4
+                for k in ordre_couloirs:
+                    if fin_g - l_pct >= 0.2 and couloir_libre(k, fin_g - l_pct, fin_g):
+                        choix = (k, fin_g, True)
+                        break
+            if choix is not None:
+                k, bord, gauche = choix
+                if gauche:
+                    occupation[k].append((bord - l_pct, bord))
+                else:
+                    occupation[k].append((bord, bord + l_pct))
+            else:
+                # cluster trop dense : chevauchement inévitable, couloir le moins rempli
+                k = min(ordre_couloirs, key=lambda k: sum(i1 - i0 for i0, i1 in occupation[k]))
+                bord, gauche = (jd - 0.4, True) if inv else (jd + 0.4, False)
+                if gauche:
+                    occupation[k].append((bord - l_pct, bord))
+                else:
+                    occupation[k].append((bord, bord + l_pct))
+            centre = centres_pct[k]
+            if gauche:
+                style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translate(-100%,-50%);"
+            else:
+                style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
+            # tige : relie le losange (au niveau du couloir) à la barre
+            if centre < 50:
+                tige = f"top:{centre:.1f}%;height:{45 - centre:.1f}%;"
+            else:
+                tige = f"top:55%;height:{centre - 55:.1f}%;"
+            marqueurs += (
+                f'<span class="tige" style="{tige}background:{c};left:{jd:.3f}%"></span>'
+                f'<span class="losange" style="top:{centre:.1f}%;left:{jd:.3f}%;background:{c}"></span>'
+                f'<span class="jalon" style="{style}border-color:{c}">{texte}</span>'
+            )
+
+        nom_affiche = AFFICHAGE_SCOPES.get(s, s)
+        font_g = min(12.5, round(138 / (0.58 * max(len(nom_affiche), 1)), 1))
+        font_g = max(font_g, 7.5)
+        rows.append(
+            f'<div class="row groupe-row" style="height:{h_ligne}px">'
+            f'<div class="cell-g" style="background:{c};font-size:{font_g}px" title="{s}">{nom_affiche}</div>'
+            f'<div class="cell-tl">{bande}{marqueurs}</div></div>'
+        )
+
+    stats = (
+        f'<div class="stats"><b>{nb_jalons} jalons</b> sur {len(scopes)} catégories'
+        f'<br><span class="petit">jalons = sous-tâches « Prêt à l\'usage »</span></div>'
+    )
+
+    html = f"""<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning jalons</title>
+<style>
+  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  html, body {{ width: 100%; height: 100%; overflow: hidden; background: #eef0f4; font-family: Arial, Helvetica, sans-serif; }}
+  /* cadre 16:9 logique de 1920x1080, mis à l'échelle à 100 % du navigateur
+     par le script (marge de sécurité de 10 % sur la hauteur) */
+  #ecran {{ position: absolute; width: 1920px; height: 1080px; transform-origin: top left; }}
+  .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; background: #fff; }}
+  .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }}
+  h1 {{ font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
+  .zoom {{ display: flex; gap: 6px; align-items: center; width: 120px; }}
+  .zoom button {{ width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }}
+  .zoom button:hover {{ background: #eee; }}
+  .zoom .niveau {{ font-size: 12px; color: #555; width: 40px; text-align: center; }}
+  .stats {{ font-size: 12px; color: #444; text-align: right; line-height: 1.5; }}
+  .stats .petit {{ color: #888; font-size: 10.5px; }}
+  .gantt {{ flex: 1; display: flex; flex-direction: column; border: 1px solid #d5d5d5; min-height: 0; position: relative; }}
+  .corps {{ flex: 1; min-height: 0; position: relative; overflow-x: auto; overflow-y: hidden; }}
+  .corps::-webkit-scrollbar {{ height: 9px; }}
+  .corps::-webkit-scrollbar-thumb {{ background: #b9b9d0; border-radius: 5px; }}
+  .inner {{ position: relative; min-width: 100%; height: 100%; }}
+  .entete-tl {{ display: flex; height: 44px; position: sticky; top: 0; z-index: 10; }}
+  .h-g {{ width: 150px; flex: none; background: #1f1f38; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: sticky; left: 0; z-index: 11; }}
+  .qcol {{ flex: 1; border-left: 1px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; line-height: 1.2; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35); }}
+  .qcol:nth-child(2) {{ border-left: none; }}
+  .grid {{ position: absolute; left: 150px; right: 0; top: 44px; bottom: 9px; z-index: 0; }}
+  .qsep {{ position: absolute; top: 0; bottom: 0; width: 1px; background: #ececf2; }}
+  .qsep.q1 {{ background: #c4c4d4; }}
+  .rowsbox {{ position: relative; z-index: 1; }}
+  .row {{ display: flex; }}
+  .cell-g {{ width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }}
+  .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
+  .bande {{ position: absolute; top: 45%; bottom: 45%; border-radius: 2px; }}
+  .tige {{ position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }}
+  .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
+  .jalon {{ position: absolute; font-size: 10px; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
+</style>
+</head>
+<body>
+<div id="ecran">
+<div class="page">
+  <div class="titre"><div class="zoom">
+    <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
+    <span class="niveau" id="zniveau">1×</span>
+    <button id="zplus" title="zoomer">+</button>
+  </div><h1>{titre}</h1>{stats}</div>
+  <div class="gantt">
+    <div class="corps" id="scroll">
+      <div class="inner" id="inner">
+        <div class="entete-tl"><div class="h-g">CATÉGORIES</div>{qcols}</div>
+        <div class="grid">{qgrid}</div>
+        <div class="rowsbox">{''.join(rows)}</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<script>
+/* ---------- mise à l'échelle : 100 % du navigateur, 16:9, marge 10 % hauteur ---------- */
+const ecran = document.getElementById('ecran');
+function ajuster() {{
+  const s = Math.min(window.innerWidth / 1920, (window.innerHeight * 0.9) / 1080);
+  ecran.style.transform = 'scale(' + s + ')';
+  ecran.style.left = Math.max((window.innerWidth - 1920 * s) / 2, 0) + 'px';
+  ecran.style.top = Math.max((window.innerHeight - 1080 * s) / 2, 0) + 'px';
+}}
+window.addEventListener('resize', ajuster);
+ajuster();
+
+/* ---------- zoom : la timeline seule, colonnes fixes ---------- */
+const scroll = document.getElementById('scroll');
+const inner = document.getElementById('inner');
+const zniveau = document.getElementById('zniveau');
+let zoom = 1;
+function appliquerZoom() {{
+  inner.style.width = (zoom * 100) + '%';
+  zniveau.textContent = zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+}}
+document.getElementById('zplus').addEventListener('click', () => {{ zoom = Math.min(zoom * 2, 16); appliquerZoom(); }});
+document.getElementById('zmoins').addEventListener('click', () => {{
+  zoom = zoom / 2 <= 1 ? 1 : zoom / 2; appliquerZoom();
+}});
+scroll.addEventListener('wheel', e => {{
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const avant = inner.getBoundingClientRect().width;
+  zoom = Math.min(16, Math.max(1, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  appliquerZoom();
+  const apres = inner.getBoundingClientRect().width;
+  scroll.scrollLeft = scroll.scrollLeft * (apres / avant);
+}}, {{ passive: false }});
+
+let drag = null;
+scroll.addEventListener('mousedown', e => {{
+  if (zoom <= 1) return;
+  drag = {{ x: e.clientX, s: scroll.scrollLeft }};
+  scroll.style.cursor = 'grabbing';
+}});
+window.addEventListener('mousemove', e => {{
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+}});
+window.addEventListener('mouseup', () => {{ drag = null; scroll.style.cursor = ''; }});
+</script>
+</body>
+</html>
+"""
+    return html
+
+
+SUFFIXES_VUES = {"synthese": "", "jalons": "-jalons", "detail": "-detail"}
+
+
+def generer_vues(lots, vues, base_nom, dossier_sortie, titre="PLANNING DE PROJET",
+                 libelle_projet="", ordre_scopes=None, destinations=None):
+    """Génère les vues demandées (synthese, jalons, detail) dans dossier_sortie,
+    avec le même nom de base : <base_nom><suffixe>.html. Chaque fichier est
+    aussi copié vers les destinations supplémentaires fournies."""
+    for v in vues:
+        if v not in SUFFIXES_VUES:
+            sys.exit(f"Vue inconnue : {v} (choix : {', '.join(SUFFIXES_VUES)}).")
+    os.makedirs(dossier_sortie, exist_ok=True)
+    produits = []
+    for vue in vues:
+        chemin = os.path.join(dossier_sortie, f"{base_nom}{SUFFIXES_VUES[vue]}.html")
+        if vue == "synthese":
+            html = generer_html(lots, titre=titre, libelle_projet=libelle_projet, ordre_scopes=ordre_scopes)
+        elif vue == "jalons":
+            html = generer_html_jalons(lots, titre=titre + " : JALONS",
+                                       libelle_projet=libelle_projet, ordre_scopes=ordre_scopes)
+        else:
+            html = generer_html_detail(lots, titre=titre + " : DÉTAIL",
+                                       libelle_projet=libelle_projet, ordre_scopes=ordre_scopes)
+        with open(chemin, "w", encoding="utf-8") as fh:
+            fh.write(html)
+        copies = []
+        for dest in (destinations or []):
+            try:
+                os.makedirs(dest, exist_ok=True)
+                shutil.copy2(chemin, os.path.join(dest, os.path.basename(chemin)))
+                copies.append(dest)
+            except OSError as e:
+                print(f"ATTENTION : copie impossible vers {dest} : {e}", file=sys.stderr)
+        produits.append((chemin, vue, copies))
+    return produits
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--sans-extract", action="store_true", help="régénérer depuis le JSON intermédiaire local sans appeler l'API")
     parser.add_argument("--source", help="générer depuis un fichier JSON de lots (données d'exemple, export...) au lieu de l'API")
+    parser.add_argument("--json", help="générer depuis un export JSON du projet Asana (menu projet > Exporter > JSON)")
     parser.add_argument("--vierge", action="store_true", help="générer un modèle HTML vierge (aucune donnée, à remplir par le script CSV)")
     parser.add_argument("--projet", help="GID du projet Asana (requis pour l'extraction API)")
     parser.add_argument("--workspace", default=None, help="GID du workspace Asana (défaut : variable ASANA_WORKSPACE)")
     parser.add_argument("--titre", default="PLANNING DE PROJET", help="titre affiché en haut du planning")
     parser.add_argument("--libelle-projet", default="", help="libellé du projet stocké dans les données")
+    parser.add_argument("--vues", default="synthese,jalons",
+                        help="vues à générer, séparées par des virgules : synthese, jalons, detail")
     parser.add_argument("--sortie", default=None, help="nom de base des fichiers HTML générés (sans extension)")
+    parser.add_argument("--dossier", default=None,
+                        help=f"dossier de sortie des HTML (défaut : {DOSSIER_SORTIE})")
+    parser.add_argument("--destination", action="append", default=None,
+                        help="destination supplémentaire de copie des HTML (option répétable)")
     args = parser.parse_args()
 
+    vues = [v.strip().lower() for v in args.vues.split(",") if v.strip()]
+
+    ordre_scopes = []
     if args.vierge:
         lots = []
+    elif args.json:
+        lots, ordre_scopes = charger_export_json(args.json)
     elif args.source:
         lots = json.load(open(args.source))
     elif args.sans_extract:
         lots = json.load(open(f"{DOSSIER}/lots.json"))
     else:
         if not args.projet:
-            sys.exit("Préciser --projet <GID> pour l'extraction API (ou --source / --vierge).")
-        lots = extraire_asana(args.projet, args.workspace)
+            sys.exit("Préciser --projet <GID> (API), --json <export> ou --source <fichier>.")
+        lots, ordre_scopes = extraire_asana(args.projet, args.workspace)
         resoudre_dependances(lots)
         calculer_fins(lots)
         json.dump(lots, open(f"{DOSSIER}/lots.json", "w"), ensure_ascii=False)
 
-    if args.sortie:
-        sortie = f"{DOSSIER}/{args.sortie}.html"
-        sortie_d = f"{DOSSIER}/{args.sortie}-detail.html"
-    else:
-        sortie = f"{DOSSIER}/planning-strategie-hebergement.html"
-        sortie_d = f"{DOSSIER}/planning-strategie-hebergement-detail.html"
-
-    html = generer_html(lots, titre=args.titre, libelle_projet=args.libelle_projet)
-    open(sortie, "w").write(html)
-    print(f"OK : {sortie}")
-    print(f"     {len(lots)} lots, {sum(len(l['deps']) for l in lots)} dépendances")
-
-    html_d = generer_html_detail(lots, titre=args.titre + " : DÉTAIL" if args.titre else "DÉTAIL",
-                                 libelle_projet=args.libelle_projet)
-    open(sortie_d, "w").write(html_d)
-    print(f"OK : {sortie_d}")
-    print(f"     {sum(len(l['sous_taches']) for l in lots)} sous-tâches, "
-          f"{sum(len(l['deps']) for l in lots)} dépendances + chaînage des sous-tâches")
+    base = args.sortie or f"planning-{date.today():%Y-%m-%d}"
+    dossier_sortie = args.dossier or DOSSIER_SORTIE
+    destinations = list(DESTINATIONS) + list(args.destination or [])
+    produits = generer_vues(lots, vues, base, dossier_sortie,
+                            titre=args.titre, libelle_projet=args.libelle_projet,
+                            ordre_scopes=ordre_scopes, destinations=destinations)
+    for chemin, vue, copies in produits:
+        print(f"OK [{vue}] : {chemin}")
+        for dest in copies:
+            print(f"     copié vers {dest}")
+    print(f"     {len(lots)} lots, {sum(len(l['deps']) for l in lots)} dépendances, "
+          f"{sum(len(l['sous_taches']) for l in lots)} sous-tâches")
 
 
 if __name__ == "__main__":

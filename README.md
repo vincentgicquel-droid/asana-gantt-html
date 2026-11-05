@@ -73,6 +73,24 @@ export ASANA_WORKSPACE=<gid du workspace>
 python3 generer_gantt.py --projet <gid du projet> --titre "PLANNING ..." 
 ```
 
+Le token et les variables sont aussi lus automatiquement dans un fichier
+`config.env` présent à côté du script ou dans un dossier parent.
+
+### Environnements (sandbox / prod)
+
+Le workspace peut être choisi par environnement, dans le format du kit :
+
+```
+ASANA_ENV=sandbox            # ou prod
+ASANA_WORKSPACE_SANDBOX=<gid sandbox>
+ASANA_WORKSPACE_PROD=<gid prod>
+```
+
+Priorité : `--workspace` (ligne de commande) > `ASANA_WORKSPACE` >
+`ASANA_WORKSPACE_<ASANA_ENV>` > sandbox par défaut. L'option `--env prod`
+force l'environnement ponctuellement. L'interface web, elle, liste les projets
+de tous les workspaces accessibles au token : on choisit le bon dans la liste.
+
 ### Depuis un fichier JSON de lots
 
 ```bash

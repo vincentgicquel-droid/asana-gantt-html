@@ -1535,6 +1535,16 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         n = "".join(c for c in n if unicodedata.category(c) != "Mn")
         return "pret a l usage" in re.sub(r"[^a-z0-9]+", " ", n)
 
+    def libelle_jalon(label_lot, nom_sous):
+        """Libellé affiché = nom du lot parent (tâche parent), sans la
+        numérotation ni le préfixe éventuel de tâche ajoutée : « NEW -
+        02.1.Installation réseaux » devient « Installation réseaux ». Repli
+        sur le nom de la sous-tâche si le lot n'a pas de libellé."""
+        t = re.sub(r"\s+", " ", (label_lot or "")).strip()
+        t = re.sub(r"^\s*NEW\s*-\s*", "", t, flags=re.I)
+        t = re.sub(r"^\s*\d+(?:\.\d+)*\.?\s*", "", t).strip()
+        return t or (nom_sous or "").strip()
+
     jalons_par_scope = {}
     for l in lots:
         for s in l["sous_taches"]:
@@ -1542,7 +1552,8 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
             # donc la fin en priorité, repli sur le début
             d_j = s.get("fin") or s.get("debut")
             if d_j and est_jalon(s.get("nom", "")):
-                jalons_par_scope.setdefault(l["scope"], []).append({"nom": s["nom"], "date": d_j})
+                jalons_par_scope.setdefault(l["scope"], []).append(
+                    {"nom": libelle_jalon(l.get("label"), s.get("nom")), "date": d_j})
     for v in jalons_par_scope.values():
         v.sort(key=lambda j: j["date"])
 
@@ -1578,9 +1589,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         # estimation calibrée sur le rendu réel mesuré (Arial 10 px), marge 5 %
         return round((16 + len(texte) * 4.6) / LARGEUR_TL * 100, 2)
 
-    def jjmm(iso):
-        return f"{iso[8:10]}/{iso[5:7]}"
-
     # hauteurs de lignes proportionnelles au besoin : les jalons dont les
     # dates sont plus proches que la largeur d'un libellé se chevauchent tous,
     # il faut un couloir par jalon simultané (13 px par couloir, de part et
@@ -1591,7 +1599,7 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         jalons_s = jalons_par_scope.get(s, [])
         dates_j = [date.fromisoformat(j["date"]) for j in jalons_s]
         if jalons_s:
-            l_moy = sum(largeur_libelle(f'{jjmm(j["date"])} · {j["nom"]}') for j in jalons_s) / len(jalons_s)
+            l_moy = sum(largeur_libelle(j["nom"]) for j in jalons_s) / len(jalons_s)
             w_days = l_moy / 100 * span
             clique = max(sum(1 for d2 in dates_j if abs((d2 - d).days) < w_days) for d in dates_j)
             n_couloirs = clique + (clique % 2)  # pair : zones symétriques
@@ -1667,7 +1675,9 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         for j in jalons_s:
             nb_jalons += 1
             jd = x(j["date"])
-            texte = f'{jjmm(j["date"])} · {j["nom"]}'
+            # pas de date dans le libellé : le losange est déjà positionné
+            # sur la timeline selon la date du jalon
+            texte = j["nom"]
             l_pct = largeur_libelle(texte)
             # placement du libellé : à droite du losange de préférence (en le
             # poussant si un voisin occupe la place), à gauche en secours
@@ -1734,7 +1744,7 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
 
     stats = (
         f'<div class="stats"><b>{nb_jalons} jalons</b> sur {len(scopes)} catégories'
-        f'<br><span class="petit">jalons = sous-tâches « Prêt à l\'usage »</span></div>'
+        f'<br><span class="petit">jalons = sous-tâches « Prêt à l\'usage », libellé de la tâche parente</span></div>'
     )
 
     html = f"""<!doctype html>

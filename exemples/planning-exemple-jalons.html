@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Planning jalons</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #eef0f4; font-family: Arial, Helvetica, sans-serif; }
+  /* cadre 16:9 logique de 1920x1080, mis à l'échelle à 100 % du navigateur
+     par le script (marge de sécurité de 10 % sur la hauteur) */
+  #ecran { position: absolute; width: 1920px; height: 1080px; transform-origin: top left; }
+  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; background: #fff; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  .zoom { display: flex; gap: 6px; align-items: center; width: 120px; }
+  .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
+  .zoom button:hover { background: #eee; }
+  .zoom .niveau { font-size: 12px; color: #555; width: 40px; text-align: center; }
+  .stats { font-size: 12px; color: #444; text-align: right; line-height: 1.5; }
+  .stats .petit { color: #888; font-size: 10.5px; }
+  .gantt { flex: 1; display: flex; flex-direction: column; border: 1px solid #d5d5d5; min-height: 0; position: relative; }
+  .corps { flex: 1; min-height: 0; position: relative; overflow-x: auto; overflow-y: hidden; }
+  .corps::-webkit-scrollbar { height: 9px; }
+  .corps::-webkit-scrollbar-thumb { background: #b9b9d0; border-radius: 5px; }
+  .inner { position: relative; min-width: 100%; height: 100%; }
+  .entete-tl { display: flex; height: 44px; position: sticky; top: 0; z-index: 10; }
+  .h-g { width: 150px; flex: none; background: #1f1f38; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; position: sticky; left: 0; z-index: 11; }
+  .qcol { flex: 1; border-left: 1px solid rgba(255,255,255,.35); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 15px; font-weight: bold; line-height: 1.2; color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+  .qcol:nth-child(2) { border-left: none; }
+  .grid { position: absolute; left: 150px; right: 0; top: 44px; bottom: 9px; z-index: 0; }
+  .qsep { position: absolute; top: 0; bottom: 0; width: 1px; background: #ececf2; }
+  .qsep.q1 { background: #c4c4d4; }
+  .rowsbox { position: relative; z-index: 1; }
+  .row { display: flex; }
+  .cell-g { width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }
+  .cell-tl { flex: 1; min-width: 0; position: relative; overflow: hidden; }
+  .bande { position: absolute; top: 45%; bottom: 45%; border-radius: 2px; }
+  .tige { position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }
+  .losange { position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }
+  .jalon { position: absolute; font-size: 10px; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }
+</style>
+</head>
+<body>
+<div id="ecran">
+<div class="page">
+  <div class="titre"><div class="zoom">
+    <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
+    <span class="niveau" id="zniveau">1×</span>
+    <button id="zplus" title="zoomer">+</button>
+  </div><h1>PLANNING DE PROJET : JALONS</h1><div class="stats"><b>30 jalons</b> sur 10 catégories<br><span class="petit">jalons = sous-tâches « Prêt à l'usage », libellé de la tâche parente</span></div></div>
+  <div class="gantt">
+    <div class="corps" id="scroll">
+      <div class="inner" id="inner">
+        <div class="entete-tl"><div class="h-g">CATÉGORIES</div><div class="qcol" style="background:#152155;color:#fff"><span>T1</span><span>2026</span></div><div class="qcol" style="background:#192763;color:#fff"><span>T2</span><span>2026</span></div><div class="qcol" style="background:#2d3b76;color:#fff"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#515d8e;color:#fff"><span>T4</span><span>2026</span></div><div class="qcol" style="background:#246428;color:#fff"><span>T1</span><span>2027</span></div><div class="qcol" style="background:#2a742e;color:#fff"><span>T2</span><span>2027</span></div><div class="qcol" style="background:#3e8742;color:#fff"><span>T3</span><span>2027</span></div><div class="qcol" style="background:#609c63;color:#fff"><span>T4</span><span>2027</span></div><div class="qcol" style="background:#54157b;color:#fff"><span>T1</span><span>2028</span></div></div>
+        <div class="grid"><div class="qsep" style="left:10.962%"></div><div class="qsep" style="left:22.046%"></div><div class="qsep" style="left:33.252%"></div><div class="qsep q1" style="left:44.458%"></div><div class="qsep" style="left:55.42%"></div><div class="qsep" style="left:66.504%"></div><div class="qsep" style="left:77.71%"></div><div class="qsep q1" style="left:88.916%"></div></div>
+        <div class="rowsbox"><div class="row groupe-row" style="height:126px"><div class="cell-g" style="background:#5b3fa8;font-size:12.5px" title="Domaine A">Domaine A</div><div class="cell-tl"><span class="bande" style="background:#5b3fa8;left:10.962%;width:88.916%"></span><span class="tige" style="top:33.8%;height:11.2%;background:#5b3fa8;left:30.329%"></span><span class="losange" style="top:33.8%;left:30.329%;background:#5b3fa8"></span><span class="jalon" style="top:33.8%;left:30.729%;transform:translateY(-50%);border-color:#5b3fa8">Lot 21.Catalogue de services</span><span class="tige" style="top:55%;height:11.2%;background:#5b3fa8;left:33.252%"></span><span class="losange" style="top:66.2%;left:33.252%;background:#5b3fa8"></span><span class="jalon" style="top:66.2%;left:33.652%;transform:translateY(-50%);border-color:#5b3fa8">Lot 21.Catalogue de services</span><span class="tige" style="top:16.0%;height:29.0%;background:#5b3fa8;left:37.637%"></span><span class="losange" style="top:16.0%;left:37.637%;background:#5b3fa8"></span><span class="jalon" style="top:16.0%;left:38.037%;transform:translateY(-50%);border-color:#5b3fa8">Lot 21.Catalogue de services</span><span class="tige" style="top:33.8%;height:11.2%;background:#5b3fa8;left:83.557%"></span><span class="losange" style="top:33.8%;left:83.557%;background:#5b3fa8"></span><span class="jalon" style="top:33.8%;left:83.957%;transform:translateY(-50%);border-color:#5b3fa8">Lot 11.Virtualisation</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#1a7fd4;font-size:12.5px" title="Domaine B">Domaine B</div><div class="cell-tl"><span class="bande" style="background:#1a7fd4;left:22.046%;width:55.541999999999994%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#1a7fd4;left:43.118%"></span><span class="losange" style="top:26.1%;left:43.118%;background:#1a7fd4"></span><span class="jalon" style="top:26.1%;left:43.518%;transform:translateY(-50%);border-color:#1a7fd4">Lot 02.Réseau d'entreprise</span><span class="tige" style="top:26.1%;height:18.9%;background:#1a7fd4;left:71.620%"></span><span class="losange" style="top:26.1%;left:71.620%;background:#1a7fd4"></span><span class="jalon" style="top:26.1%;left:72.020%;transform:translateY(-50%);border-color:#1a7fd4">Lot 12.Ordonnancement</span></div></div><div class="row groupe-row" style="height:126px"><div class="cell-g" style="background:#00838f;font-size:12.5px" title="Domaine C">Domaine C</div><div class="cell-tl"><span class="bande" style="background:#00838f;left:0.0%;width:44.336%"></span><span class="tige" style="top:33.8%;height:11.2%;background:#00838f;left:17.296%"></span><span class="losange" style="top:33.8%;left:17.296%;background:#00838f"></span><span class="jalon" style="top:33.8%;left:17.696%;transform:translateY(-50%);border-color:#00838f">Lot 03.Messagerie et collaboration</span><span class="tige" style="top:55%;height:11.2%;background:#00838f;left:21.559%"></span><span class="losange" style="top:66.2%;left:21.559%;background:#00838f"></span><span class="jalon" style="top:66.2%;left:21.959%;transform:translateY(-50%);border-color:#00838f">Lot 03.Messagerie et collaboration</span><span class="tige" style="top:33.8%;height:11.2%;background:#00838f;left:30.694%"></span><span class="losange" style="top:33.8%;left:30.694%;background:#00838f"></span><span class="jalon" style="top:33.8%;left:31.094%;transform:translateY(-50%);border-color:#00838f">Lot 03.Messagerie et collaboration</span><span class="tige" style="top:55%;height:11.2%;background:#00838f;left:32.400%"></span><span class="losange" style="top:66.2%;left:32.400%;background:#00838f"></span><span class="jalon" style="top:66.2%;left:32.800%;transform:translateY(-50%);border-color:#00838f">Lot 13.Gestion des accès à distance</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#2e7d32;font-size:12.5px" title="Domaine D">Domaine D</div><div class="cell-tl"><span class="bande" style="background:#2e7d32;left:22.046%;width:66.74799999999999%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#2e7d32;left:32.034%"></span><span class="losange" style="top:26.1%;left:32.034%;background:#2e7d32"></span><span class="jalon" style="top:26.1%;left:32.434%;transform:translateY(-50%);border-color:#2e7d32">Lot 24.Certificats et PKI</span><span class="tige" style="top:26.1%;height:18.9%;background:#2e7d32;left:44.336%"></span><span class="losange" style="top:26.1%;left:44.336%;background:#2e7d32"></span><span class="jalon" style="top:26.1%;left:44.736%;transform:translateY(-50%);border-color:#2e7d32">Lot 14.Stockage objet</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#9e9d24;font-size:12.5px" title="Domaine E">Domaine E</div><div class="cell-tl"><span class="bande" style="background:#9e9d24;left:0.0%;width:66.382%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#9e9d24;left:41.900%"></span><span class="losange" style="top:26.1%;left:41.900%;background:#9e9d24"></span><span class="jalon" style="top:26.1%;left:42.300%;transform:translateY(-50%);border-color:#9e9d24">Lot 25.Gestion des flux</span><span class="tige" style="top:26.1%;height:18.9%;background:#9e9d24;left:54.446%"></span><span class="losange" style="top:26.1%;left:54.446%;background:#9e9d24"></span><span class="jalon" style="top:26.1%;left:54.846%;transform:translateY(-50%);border-color:#9e9d24">Lot 25.Gestion des flux</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#b36b00;font-size:12.5px" title="Domaine F">Domaine F</div><div class="cell-tl"><span class="bande" style="background:#b36b00;left:10.962%;width:66.62599999999999%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#b36b00;left:29.111%"></span><span class="losange" style="top:26.1%;left:29.111%;background:#b36b00"></span><span class="jalon" style="top:26.1%;left:29.511%;transform:translateY(-50%);border-color:#b36b00">Lot 06.Supervision et exploitation</span><span class="tige" style="top:26.1%;height:18.9%;background:#b36b00;left:53.959%"></span><span class="losange" style="top:26.1%;left:53.959%;background:#b36b00"></span><span class="jalon" style="top:26.1%;left:54.359%;transform:translateY(-50%);border-color:#b36b00">Lot 26.Impression</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#ad1457;font-size:12.5px" title="Domaine G">Domaine G</div><div class="cell-tl"><span class="bande" style="background:#ad1457;left:10.962%;width:77.832%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#ad1457;left:38.368%"></span><span class="losange" style="top:26.1%;left:38.368%;background:#ad1457"></span><span class="jalon" style="top:26.1%;left:38.768%;transform:translateY(-50%);border-color:#ad1457">Lot 07.Poste de travail</span><span class="tige" style="top:26.1%;height:18.9%;background:#ad1457;left:62.972%"></span><span class="losange" style="top:26.1%;left:62.972%;background:#ad1457"></span><span class="jalon" style="top:26.1%;left:63.372%;transform:translateY(-50%);border-color:#ad1457">Lot 27.Fédération d'identité</span></div></div><div class="row groupe-row" style="height:83px"><div class="cell-g" style="background:#6a1b9a;font-size:12.5px" title="Domaine H">Domaine H</div><div class="cell-tl"><span class="bande" style="background:#6a1b9a;left:22.046%;width:77.832%"></span><span class="tige" style="top:26.1%;height:18.9%;background:#6a1b9a;left:34.105%"></span><span class="losange" style="top:26.1%;left:34.105%;background:#6a1b9a"></span><span class="jalon" style="top:26.1%;left:34.505%;transform:translateY(-50%);border-color:#6a1b9a">Lot 18.Supervision réseau</span><span class="tige" style="top:55%;height:18.9%;background:#6a1b9a;left:34.105%"></span><span class="losange" style="top:73.9%;left:34.105%;background:#6a1b9a"></span><span class="jalon" style="top:73.9%;left:34.505%;transform:translateY(-50%);border-color:#6a1b9a">Lot 18.Supervision réseau</span><span class="tige" style="top:26.1%;height:18.9%;background:#6a1b9a;left:67.722%"></span><span class="losange" style="top:26.1%;left:67.722%;background:#6a1b9a"></span><span class="jalon" style="top:26.1%;left:68.122%;transform:translateY(-50%);border-color:#6a1b9a">Lot 08.Bases de données</span><span class="tige" style="top:26.1%;height:18.9%;background:#6a1b9a;left:79.050%"></span><span class="losange" style="top:26.1%;left:79.050%;background:#6a1b9a"></span><span class="jalon" style="top:26.1%;left:79.450%;transform:translateY(-50%);border-color:#6a1b9a">Lot 08.Bases de données</span></div></div><div class="row groupe-row" style="height:126px"><div class="cell-g" style="background:#455a64;font-size:12.5px" title="Domaine I">Domaine I</div><div class="cell-tl"><span class="bande" style="background:#455a64;left:10.962%;width:77.832%"></span><span class="tige" style="top:33.8%;height:11.2%;background:#455a64;left:33.374%"></span><span class="losange" style="top:33.8%;left:33.374%;background:#455a64"></span><span class="jalon" style="top:33.8%;left:33.774%;transform:translateY(-50%);border-color:#455a64">Lot 19.Gestion des habilitations</span><span class="tige" style="top:33.8%;height:11.2%;background:#455a64;left:61.632%"></span><span class="losange" style="top:33.8%;left:61.632%;background:#455a64"></span><span class="jalon" style="top:33.8%;left:62.032%;transform:translateY(-50%);border-color:#455a64">Lot 29.Gestion des incidents</span><span class="tige" style="top:55%;height:11.2%;background:#455a64;left:66.504%"></span><span class="losange" style="top:66.2%;left:66.504%;background:#455a64"></span><span class="jalon" style="top:66.2%;left:66.904%;transform:translateY(-50%);border-color:#455a64">Lot 09.Transferts de fichiers</span><span class="tige" style="top:16.0%;height:29.0%;background:#455a64;left:66.626%"></span><span class="losange" style="top:16.0%;left:66.626%;background:#455a64"></span><span class="jalon" style="top:16.0%;left:67.026%;transform:translateY(-50%);border-color:#455a64">Lot 29.Gestion des incidents</span><span class="tige" style="top:33.8%;height:11.2%;background:#455a64;left:76.614%"></span><span class="losange" style="top:33.8%;left:76.614%;background:#455a64"></span><span class="jalon" style="top:33.8%;left:77.014%;transform:translateY(-50%);border-color:#455a64">Lot 29.Gestion des incidents</span></div></div><div class="row groupe-row" style="height:82px"><div class="cell-g" style="background:#37474f;font-size:12.5px" title="Domaine J">Domaine J</div><div class="cell-tl"><span class="bande" style="background:#37474f;left:0.0%;width:88.794%"></span><span class="tige" style="top:26.2%;height:18.8%;background:#37474f;left:47.990%"></span><span class="losange" style="top:26.2%;left:47.990%;background:#37474f"></span><span class="jalon" style="top:26.2%;left:48.390%;transform:translateY(-50%);border-color:#37474f">Lot 30.Référentiel de données</span><span class="tige" style="top:26.2%;height:18.8%;background:#37474f;left:58.952%"></span><span class="losange" style="top:26.2%;left:58.952%;background:#37474f"></span><span class="jalon" style="top:26.2%;left:59.352%;transform:translateY(-50%);border-color:#37474f">Lot 20.Portail intranet</span><span class="tige" style="top:55%;height:18.8%;background:#37474f;left:64.190%"></span><span class="losange" style="top:73.8%;left:64.190%;background:#37474f"></span><span class="jalon" style="top:73.8%;left:64.590%;transform:translateY(-50%);border-color:#37474f">Lot 20.Portail intranet</span></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+<script>
+/* ---------- mise à l'échelle : 100 % du navigateur, 16:9, marge 10 % hauteur ---------- */
+const ecran = document.getElementById('ecran');
+function ajuster() {
+  const s = Math.min(window.innerWidth / 1920, (window.innerHeight * 0.9) / 1080);
+  ecran.style.transform = 'scale(' + s + ')';
+  ecran.style.left = Math.max((window.innerWidth - 1920 * s) / 2, 0) + 'px';
+  ecran.style.top = Math.max((window.innerHeight - 1080 * s) / 2, 0) + 'px';
+}
+window.addEventListener('resize', ajuster);
+ajuster();
+
+/* ---------- zoom : la timeline seule, colonnes fixes ---------- */
+const scroll = document.getElementById('scroll');
+const inner = document.getElementById('inner');
+const zniveau = document.getElementById('zniveau');
+let zoom = 1;
+function appliquerZoom() {
+  inner.style.width = (zoom * 100) + '%';
+  zniveau.textContent = zoom.toFixed(zoom < 10 ? 1 : 0) + '×';
+}
+document.getElementById('zplus').addEventListener('click', () => { zoom = Math.min(zoom * 2, 16); appliquerZoom(); });
+document.getElementById('zmoins').addEventListener('click', () => {
+  zoom = zoom / 2 <= 1 ? 1 : zoom / 2; appliquerZoom();
+});
+scroll.addEventListener('wheel', e => {
+  if (!e.ctrlKey && !e.metaKey) return;
+  e.preventDefault();
+  const avant = inner.getBoundingClientRect().width;
+  zoom = Math.min(16, Math.max(1, zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+  appliquerZoom();
+  const apres = inner.getBoundingClientRect().width;
+  scroll.scrollLeft = scroll.scrollLeft * (apres / avant);
+}, { passive: false });
+
+let drag = null;
+scroll.addEventListener('mousedown', e => {
+  if (zoom <= 1) return;
+  drag = { x: e.clientX, s: scroll.scrollLeft };
+  scroll.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+});
+window.addEventListener('mouseup', () => { drag = null; scroll.style.cursor = ''; });
+</script>
+</body>
+</html>

@@ -30,8 +30,9 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
   un couloir au-dessus ou en dessous du bandeau, relié par une tige, libellé
   lisible sans survol, texte à droite du losange (à gauche près du bord droit).
   Le libellé reprend le nom de la tâche parente (numérotation et préfixe
-  « NEW - » retirés), sans la date : le losange est déjà positionné sur la
-  timeline selon la date du jalon.
+  « NEW - » retirés, tronqué à 26 caractères + « ... »), sans la date : le
+  losange est déjà positionné sur la timeline selon la date du jalon. Tous
+  les jalons sont affichés sous le bandeau, remonté en haut de ligne.
   Un jalon Asana n'a qu'une date : son échéance (`due_on`) est retenue, repli
   sur la date de début. Les jalons sans date sont ignorés. La hauteur de
   chaque ligne s'adapte à la densité des jalons de la catégorie (aucun

@@ -1522,13 +1522,14 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     """Vue jalons : uniquement les bandeaux de catégories (un par Scope,
     alignés sur les trimestres comme en vue synthèse), sans les lignes de
     tâches. Les jalons (sous-tâches dont le nom contient "Prêt à l'usage")
-    sont affichés en repère daté sur le bandeau de leur catégorie, nom visible
-    sans survol (capture d'écran). Les jalons sans date sont ignorés.
+    sont affichés en repère daté sous le bandeau de leur catégorie, libellé
+    (nom de la tâche parente, tronqué à 26 caractères) visible sans survol.
+    Les jalons sans date sont ignorés.
 
     Affichage : mise à l'échelle automatique à 100 % du navigateur (format
     16:9, marge de sécurité de 10 % sur la hauteur) et zoom horizontal
     (boutons ou ctrl/cmd + molette) pour détailler les trimestres.
-    Les libellés sont répartis sur plusieurs couloirs verticaux pour
+    Les libellés sont répartis sur plusieurs couloirs sous le bandeau pour
     éviter les superpositions."""
     def est_jalon(nom):
         n = unicodedata.normalize("NFD", (nom or "").lower())
@@ -1538,12 +1539,16 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     def libelle_jalon(label_lot, nom_sous):
         """Libellé affiché = nom du lot parent (tâche parent), sans la
         numérotation ni le préfixe éventuel de tâche ajoutée : « NEW -
-        02.1.Installation réseaux » devient « Installation réseaux ». Repli
-        sur le nom de la sous-tâche si le lot n'a pas de libellé."""
+        02.1.Installation réseaux » devient « Installation réseaux ». Tronqué
+        à 26 caractères + « ... » pour rester compact. Repli sur le nom de la
+        sous-tâche si le lot n'a pas de libellé."""
         t = re.sub(r"\s+", " ", (label_lot or "")).strip()
         t = re.sub(r"^\s*NEW\s*-\s*", "", t, flags=re.I)
         t = re.sub(r"^\s*\d+(?:\.\d+)*\.?\s*", "", t).strip()
-        return t or (nom_sous or "").strip()
+        t = t or (nom_sous or "").strip()
+        if len(t) > 26:
+            t = t[:26].rstrip() + "..."
+        return t
 
     jalons_par_scope = {}
     for l in lots:
@@ -1590,23 +1595,82 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         return round((16 + len(texte) * 4.6) / LARGEUR_TL * 100, 2)
 
     # hauteurs de lignes proportionnelles au besoin : les jalons dont les
-    # dates sont plus proches que la largeur d'un libellé se chevauchent tous,
-    # il faut un couloir par jalon simultané (13 px par couloir, de part et
-    # d'autre de la barre centrale qui occupe 45-55 % de la ligne)
+    # libellés se chevauchent occupent chacun un couloir (13 px par couloir),
+    # tous sous le bandeau remonté en haut de ligne (12-22 % de la hauteur)
     ESPACEMENT = 13.0
+    DEBUT_ZONE = 0.22  # bas du bandeau, en fraction de la hauteur de ligne
+
+    def pousser_droite(occ, deb, largeur):
+        """Plus petite position >= deb où l'intervalle tient dans le couloir."""
+        deb_p = deb
+        for i0, i1 in sorted(occ):
+            if deb_p < i1 + 0.25 and deb_p + largeur > i0 - 0.25:
+                deb_p = i1 + 0.25
+        return deb_p
+
+    def couloir_libre(occ, a, b):
+        return all(b < i0 - 0.25 or a > i1 + 0.25 for i0, i1 in occ)
+
+    def placer_jalons(jalons_s):
+        """Placement des libellés, couloirs alloués à la demande (tous sous le
+        bandeau). Retourne (placements, n_couloirs) : placement = tuple
+        (jd, bord, gauche, k, texte)."""
+        occupation = [[]]
+        placements = []
+        for j in jalons_s:
+            jd = x(j["date"])
+            texte = j["nom"]
+            l_pct = largeur_libelle(texte)
+            # placement du libellé : à droite du losange de préférence (en le
+            # poussant si un voisin occupe la place), à gauche en secours
+            # (texte se terminant sur le losange). bord droit du cadre :
+            # bascule à gauche d'office
+            inv = jd + l_pct > 99.5
+            choix = None
+            if not inv:
+                deb = jd + 0.4
+                for k, occ in enumerate(occupation):
+                    deb_p = pousser_droite(occ, deb, l_pct)
+                    if deb_p + l_pct <= 100.2:
+                        pousse = deb_p - deb
+                        if choix is None or pousse < choix[1]:
+                            choix = (k, deb_p, False)
+                        if pousse == 0:
+                            break
+            if choix is None:
+                # côté gauche : l'intervalle [fin_g - l, fin_g] doit être libre
+                fin_g = jd - 0.4
+                for k, occ in enumerate(occupation):
+                    if fin_g - l_pct >= 0.2 and couloir_libre(occ, fin_g - l_pct, fin_g):
+                        choix = (k, fin_g, True)
+                        break
+            if choix is not None:
+                k, bord, gauche = choix
+            else:
+                # aucun couloir existant ne convient : nouveau couloir si
+                # l'intervalle tient dans le cadre, sinon chevauchement
+                # inévitable (couloir le moins rempli)
+                a, b = (jd - 0.4 - l_pct, jd - 0.4) if inv else (jd + 0.4, jd + 0.4 + l_pct)
+                if a >= 0.2 and b <= 100.2:
+                    k = len(occupation)
+                    occupation.append([])
+                else:
+                    k = min(range(len(occupation)), key=lambda k: sum(i1 - i0 for i0, i1 in occupation[k]))
+                bord, gauche = (jd - 0.4, True) if inv else (jd + 0.4, False)
+            occupation[k].append((bord - l_pct, bord) if gauche else (bord, bord + l_pct))
+            placements.append((jd, bord, gauche, k, texte))
+        return placements, len(occupation)
+
     lignes = []
     for s in scopes:
         jalons_s = jalons_par_scope.get(s, [])
-        dates_j = [date.fromisoformat(j["date"]) for j in jalons_s]
         if jalons_s:
-            l_moy = sum(largeur_libelle(j["nom"]) for j in jalons_s) / len(jalons_s)
-            w_days = l_moy / 100 * span
-            clique = max(sum(1 for d2 in dates_j if abs((d2 - d).days) < w_days) for d in dates_j)
-            n_couloirs = clique + (clique % 2)  # pair : zones symétriques
-            h_min = ((n_couloirs // 2) * ESPACEMENT + 12) / 0.45
+            placements, n_couloirs = placer_jalons(jalons_s)
+            h_min = (n_couloirs * ESPACEMENT + 20) / (1 - DEBUT_ZONE)
         else:
-            n_couloirs, h_min = 2, 34.0
-        lignes.append({"scope": s, "jalons": jalons_s, "n_couloirs": n_couloirs, "h_min": h_min})
+            placements, n_couloirs, h_min = [], 2, 34.0
+        lignes.append({"scope": s, "jalons": jalons_s, "placements": placements,
+                       "n_couloirs": n_couloirs, "h_min": h_min})
     total_min = sum(l["h_min"] for l in lignes)
     # répartition au pixel : part proportionnelle + reste aux plus grandes fractions
     brutes = [l["h_min"] * h_dispo / total_min for l in lignes]
@@ -1644,89 +1708,25 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
 
         marqueurs = ""
         ligne = lignes[i_s]
-        jalons_s = ligne["jalons"]
         n_couloirs = ligne["n_couloirs"]
-        # occupation par couloir : liste d'intervalles [gauche, droite] posés,
-        # car un libellé à droite du losange ne bloque pas sa gauche
-        occupation = [[] for _ in range(n_couloirs)]
-
-        def couloir_libre(k, a, b):
-            return all(b < i0 - 0.25 or a > i1 + 0.25 for i0, i1 in occupation[k])
-
-        def pousser_droite(k, deb, largeur):
-            """Plus petite position >= deb où l'intervalle tient dans le couloir."""
-            deb_p = deb
-            for i0, i1 in sorted(occupation[k]):
-                if deb_p < i1 + 0.25 and deb_p + largeur > i0 - 0.25:
-                    deb_p = i1 + 0.25
-            return deb_p
-
-        # centres de couloirs en px, répartis de part et d'autre de la barre
-        # (45-55 %), espacés d'au moins ESPACEMENT, marge de 9 px en haut/bas
+        # centres de couloirs en px, tous sous le bandeau (bas du bandeau à
+        # DEBUT_ZONE de la hauteur), espacés d'au moins ESPACEMENT, marge de
+        # 9 px en bas ; couloir 0 = le plus proche du bandeau
         h_ligne = hauteurs[i_s]
-        m = n_couloirs // 2
-        zone = 0.45 * h_ligne
-        pas = (zone - 12) / m if m else 0
-        centres = [9 + (i + 0.5) * pas for i in range(m)]
-        centres += [h_ligne - 9 - (i + 0.5) * pas for i in range(m)]
+        m = max(n_couloirs, 1)
+        pas = ((1 - DEBUT_ZONE) * h_ligne - 20) / m
+        centres = [DEBUT_ZONE * h_ligne + 8 + (k + 0.5) * pas for k in range(m)]
         centres_pct = [round(c / h_ligne * 100, 2) for c in centres]
-        # recherche des couloirs du centre (sur le bandeau) vers l'extérieur
-        ordre_couloirs = sorted(range(n_couloirs), key=lambda k: abs(centres_pct[k] - 50))
-        for j in jalons_s:
+        for jd, bord, gauche, k, texte in ligne["placements"]:
             nb_jalons += 1
-            jd = x(j["date"])
-            # pas de date dans le libellé : le losange est déjà positionné
-            # sur la timeline selon la date du jalon
-            texte = j["nom"]
             l_pct = largeur_libelle(texte)
-            # placement du libellé : à droite du losange de préférence (en le
-            # poussant si un voisin occupe la place), à gauche en secours
-            # (texte se terminant sur le losange), ce qui double la capacité
-            # autour des clusters de dates (fins de trimestre). bord droit du
-            # cadre : bascule à gauche d'office
-            inv = jd + l_pct > 99.5
-            choix = None
-            if not inv:
-                deb = jd + 0.4
-                for k in ordre_couloirs:
-                    deb_p = pousser_droite(k, deb, l_pct)
-                    if deb_p + l_pct <= 100.2:
-                        pousse = deb_p - deb
-                        if choix is None or pousse < choix[1]:
-                            choix = (k, deb_p, False)
-                        if pousse == 0:
-                            break
-            if choix is None:
-                # côté gauche : l'intervalle [fin_g - l, fin_g] doit être libre
-                fin_g = jd - 0.4
-                for k in ordre_couloirs:
-                    if fin_g - l_pct >= 0.2 and couloir_libre(k, fin_g - l_pct, fin_g):
-                        choix = (k, fin_g, True)
-                        break
-            if choix is not None:
-                k, bord, gauche = choix
-                if gauche:
-                    occupation[k].append((bord - l_pct, bord))
-                else:
-                    occupation[k].append((bord, bord + l_pct))
-            else:
-                # cluster trop dense : chevauchement inévitable, couloir le moins rempli
-                k = min(ordre_couloirs, key=lambda k: sum(i1 - i0 for i0, i1 in occupation[k]))
-                bord, gauche = (jd - 0.4, True) if inv else (jd + 0.4, False)
-                if gauche:
-                    occupation[k].append((bord - l_pct, bord))
-                else:
-                    occupation[k].append((bord, bord + l_pct))
             centre = centres_pct[k]
             if gauche:
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translate(-100%,-50%);"
             else:
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
-            # tige : relie le losange (au niveau du couloir) à la barre
-            if centre < 50:
-                tige = f"top:{centre:.1f}%;height:{45 - centre:.1f}%;"
-            else:
-                tige = f"top:55%;height:{centre - 55:.1f}%;"
+            # tige : relie le losange (au niveau du couloir) au bandeau
+            tige = f"top:{DEBUT_ZONE * 100:.0f}%;height:{centre - DEBUT_ZONE * 100:.1f}%;"
             marqueurs += (
                 f'<span class="tige" style="{tige}background:{c};left:{jd:.3f}%"></span>'
                 f'<span class="losange" style="top:{centre:.1f}%;left:{jd:.3f}%;background:{c}"></span>'
@@ -1783,7 +1783,7 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .row {{ display: flex; }}
   .cell-g {{ width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }}
   .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
-  .bande {{ position: absolute; top: 45%; bottom: 45%; border-radius: 2px; }}
+  .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
   .tige {{ position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
   .jalon {{ position: absolute; font-size: 10px; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}

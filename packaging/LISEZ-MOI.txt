@@ -1,0 +1,78 @@
+PLANNING GANTT ASANA - EDITION PORTABLE WINDOWS
+===============================================
+
+1. CE QUE C'EST
+---------------
+Un générateur de planning type Gantt (HTML 16:9, prêt pour PowerPoint) à
+partir d'un projet Asana.
+
+Aucune installation : Python est inclus dans le dossier "python". Rien n'est
+écrit ailleurs sur le poste, aucune clé de registre, aucun droit
+administrateur requis.
+
+2. INSTALLATION (UNE SEULE FOIS)
+--------------------------------
+a) Copier ce dossier où l'on veut, par exemple Documents\Gantt-Asana.
+   (Éviter Program Files : le dossier doit rester accessible en écriture.)
+
+b) Si Windows affiche un avertissement de sécurité, faire un clic droit sur
+   le fichier .bat concerné > Propriétés > cocher "Débloquer" > OK.
+
+c) Ouvrir le fichier config.env avec le Bloc-notes et coller le token Asana
+   après le signe = :
+
+       ASANA_TOKEN=1/1234567890abcdef...
+
+   Pour créer le token : Asana > photo/icone utilisateur (en haut à droite)
+   > "Mes paramètres" > "Applications" > "Gérer les applications pour
+   développeurs" > "Personal access tokens" > "Create new token".
+   Adresse directe : https://app.asana.com/0/my-apps
+
+3. UTILISATION
+--------------
+a) Double-clic sur "1-Generer-le-planning.bat" : une fenêtre de commande
+   s'ouvre et le navigateur affiche l'interface (http://localhost:8765).
+
+b) Choisir le projet dans la liste, ajuster le titre et les vues, puis
+   cliquer "Générer en HTML". La génération prend une à deux minutes.
+
+c) Les fichiers du jour apparaissent dans le dossier "sorties" :
+   planning-AAAA-MM-JJ.html (synthèse), -jalons.html, -detail.html.
+   Un clic sur le nom du fichier dans la page l'ouvre.
+
+d) Pour arrêter : fermer la fenêtre de commande.
+
+4. MISE A JOUR SANS TOKEN (FICHIER CSV)
+---------------------------------------
+Dans Asana : menu du projet > Exporter > CSV.
+Glisser le fichier exporté sur "3-Maj-depuis-CSV.bat" : le planning est
+régénéré, sans accès réseau et sans token.
+
+5. SI LA CONNEXION ECHOUE (PROXY, PARE-FEU)
+-------------------------------------------
+a) Double-clic sur "2-Test-connexion.bat" : diagnostic complet (config.env,
+   token, proxy, API, projet). En cas de demande de support, envoyer la
+   capture d'écran de cette fenêtre.
+
+b) Si l'entreprise impose un proxy sortant, l'indiquer dans config.env :
+
+       HTTPS_PROXY=http://adresse-du-proxy:8080
+
+c) Le poste doit pouvoir joindre app.asana.com en HTTPS (port 443).
+
+6. SECURITE
+-----------
+- Le token reste sur ce poste, dans le fichier config.env local.
+- Les seuls échanges réseau vont vers app.asana.com, en HTTPS.
+- Ne pas transmettre le fichier config.env une fois le token collé dedans.
+- Pour révoquer le token : même écran Asana > supprimer le token.
+
+7. EN CAS DE PROBLEME
+---------------------
+- Message "Impossible d'ouvrir le port 8765" : l'interface est déjà lancée
+  dans une autre fenêtre ; utiliser http://localhost:8765 ou fermer l'autre
+  fenêtre.
+- La fenêtre se ferme aussitôt : lancer "2-Test-connexion.bat" pour lire le
+  message d'erreur complet.
+- Liste de projets vide : vérifier le token dans config.env (section 2c),
+  puis "2-Test-connexion.bat".

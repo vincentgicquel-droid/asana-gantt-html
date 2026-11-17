@@ -25,6 +25,7 @@ import sys
 import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from generer_gantt import (DESTINATIONS, DOSSIER_SORTIE, calculer_fins,
@@ -210,7 +211,7 @@ async function generer() {
     if (d.erreur) { res.innerHTML = `<span class="err">${d.erreur}</span>`; }
     else {
       res.innerHTML = d.fichiers.map(f =>
-        `<div class="fichier"><a href="file://${f.chemin}">${f.chemin.split('/').pop()}</a>`
+        `<div class="fichier"><a href="${f.uri}">${f.chemin.split(/[\\/]/).pop()}</a>`
         + `<div class="copie">${f.copies.length ? 'copié vers : ' + f.copies.join(', ') : 'aucune copie supplémentaire'}</div></div>`
       ).join('');
     }
@@ -264,7 +265,9 @@ class Traitement(BaseHTTPRequestHandler):
         try:
             produits = generer_depuis_api(gid, titre, vues, dossier, list(DESTINATIONS),
                                           workspace_gid=workspace)
-            fichiers = [{"chemin": os.path.abspath(chemin), "copies": copies} for chemin, _vue, copies in produits]
+            fichiers = [{"chemin": os.path.abspath(chemin),
+                         "uri": Path(chemin).resolve().as_uri(), "copies": copies}
+                        for chemin, _vue, copies in produits]
             self._repondre(200, json.dumps({"fichiers": fichiers}, ensure_ascii=False),
                            "application/json; charset=utf-8")
         except (Exception, SystemExit) as e:
@@ -280,6 +283,8 @@ def main():
     global PORT
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--port", type=int, default=PORT, help=f"port du serveur (défaut : {PORT})")
+    parser.add_argument("--navigateur", action="store_true",
+                        help="ouvrir le navigateur sur l'interface au démarrage")
     args = parser.parse_args()
     PORT = args.port
 
@@ -288,7 +293,15 @@ def main():
     print(f"Interface de génération : http://localhost:{PORT}")
     print(f"Dossier de sortie : {DOSSIER_SORTIE}"
           + (f" + copies : {', '.join(DESTINATIONS)}" if DESTINATIONS else ""))
-    serveur = ThreadingHTTPServer(("127.0.0.1", PORT), Traitement)
+    try:
+        serveur = ThreadingHTTPServer(("127.0.0.1", PORT), Traitement)
+    except OSError as e:
+        sys.exit(f"Impossible d'ouvrir le port {PORT} ({e}). L'interface est déjà lancée "
+                 f"ailleurs ? Ouvrir http://localhost:{PORT} dans le navigateur.")
+    if args.navigateur:
+        import threading
+        import webbrowser
+        threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
     try:
         serveur.serve_forever()
     except KeyboardInterrupt:

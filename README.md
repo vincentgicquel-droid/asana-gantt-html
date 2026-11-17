@@ -57,6 +57,7 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
 | `maj-gantt-depuis-json.py` | Régénération d'un HTML depuis un export JSON Asana |
 | `gantt.sh` | Commande tout-en-un : export JSON + vues -> HTML datés + copies |
 | `interface_gantt.py` | Interface web locale : choix du projet, bouton « Générer en HTML » |
+| `packaging/construire_package_windows.py` | Construit le zip portable Windows (Python embarqué + .bat + notice) |
 | `prompt-maj-gantt.md` | Guide d'utilisation + prompt de mise à jour pour un chatbot local |
 | `exemples/planning-exemple.html` | Vue synthèse avec données d'exemple fictives |
 | `exemples/planning-exemple-detail.html` | Vue détaillée avec les mêmes données d'exemple |
@@ -184,6 +185,27 @@ Elle liste les projets accessibles avec ce token, permet de choisir les vues
 et le dossier de sortie, et génère les fichiers datés du jour en un clic
 (bouton « Générer en HTML »). Aucune dépendance : serveur de la bibliothèque
 standard, utilisable sur poste ou serveur de batch.
+
+### Package portable Windows (sans installation côté client)
+
+Pour un poste client où l'on ne veut installer ni Python, ni Git Bash :
+
+```bash
+python3 packaging/construire_package_windows.py
+```
+
+Produit `packaging/dist/Gantt-Asana-portable.zip` (environ 12 Mo) contenant :
+
+- le Python Windows embarqué officiel (python.org) : aucune installation,
+  aucun droit administrateur, `python.exe` signé par la Python Software
+  Foundation (passe les antivirus et SmartScreen) ;
+- les scripts du repo, les lanceurs .bat (`1-Generer-le-planning.bat`,
+  `2-Test-connexion.bat`, `3-Maj-depuis-CSV.bat` en glisser-déposer),
+  un `config.env` à compléter avec le token et la notice `LISEZ-MOI.txt`.
+
+Le client décompresse, colle son token dans `config.env`, double-clique sur
+`1-Generer-le-planning.bat` : l'interface s'ouvre dans le navigateur. Version
+du Python embarqué réglable par `--version` (défaut : 3.14.10).
 
 ### Format 16:9
 

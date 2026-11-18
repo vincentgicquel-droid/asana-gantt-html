@@ -190,6 +190,10 @@ standard, utilisable sur poste ou serveur de batch.
 
 Pour un poste client où l'on ne veut installer ni Python, ni Git Bash :
 
+**Téléchargement direct du package complet** (Python embarqué inclus) :
+page [Releases](https://github.com/vincentgicquel-droid/asana-gantt-html/releases/latest) du dépôt, fichier `Gantt-Asana-portable.zip`.
+Le zip du code source (bouton vert "Code") ne contient pas le Python embarqué.
+
 ```bash
 python3 packaging/construire_package_windows.py
 ```

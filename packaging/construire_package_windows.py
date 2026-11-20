@@ -99,6 +99,22 @@ def assembler(version: str, zip_embed: Path) -> Path:
     for bat in sorted((DOSSIER / "bat").glob("*.bat")):
         copier_texte(bat, package / bat.name)
 
+    # dossier de sortie visible dès le dézippage (la notice annonce que les
+    # plannings générés arrivent ici) ; un fichier repère, car un dossier
+    # vide ne survit pas seul au zip
+    sorties = package / "sorties"
+    sorties.mkdir()
+    (sorties / "LISEZ-MOI.txt").write_text(
+        "Les plannings générés arrivent dans ce dossier :\r\n"
+        "\r\n"
+        "  planning-AAAA-MM-JJ.html          vue synthèse\r\n"
+        "  planning-AAAA-MM-JJ-jalons.html   vue jalons\r\n"
+        "  planning-AAAA-MM-JJ-detail.html   vue détaillée (optionnelle)\r\n"
+        "\r\n"
+        "Un couple de fichiers par génération, daté du jour.\r\n"
+        "Ce fichier repère peut être supprimé.\r\n",
+        encoding="utf-8")
+
     return package
 
 

@@ -1695,7 +1695,8 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     def x(iso):
         return round(((date.fromisoformat(iso) - t0).days / span) * 100, 3)
 
-    h_dispo = 958  # remplit exactement le cadre 16:9 (1080 - titres - en-tête)
+    h_dispo = 940  # remplit exactement le cadre 16:9 (1080 - titres - en-tête ;
+                   # le bloc stats est passé à 3 lignes avec l'horodatage)
     LARGEUR_TL = 1710  # px de timeline au zoom 1x (1920 - marges - colonne gauche)
 
     # largeur des caractères Arial en fraction d'em (mesure type), pour
@@ -1718,16 +1719,27 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     # hauteur du losange tourné (11 px × √2 ≈ 15,6 px + ombre), plus 2 px
     # de marge : aucun chevauchement vertical possible entre couloirs
     # voisins, ni libellé sur libellé ni losange sur libellé.
-    TAILLES = [(12.0, 17.5), (11.0, 17.0), (10.0, 16.5), (9.0, 16.0)]
-    DEBUT_ZONE = 0.22  # bas du bandeau, en fraction de la hauteur de ligne
-    MARGE_BAS = 18  # px réservés en bas de chaque ligne
+    # La taille de base (12 px) sert au premier placement de toutes les
+    # lignes ; après répartition des hauteurs, les lignes qui ont de la
+    # marge remontent à une taille supérieure (le blanc horizontal devient
+    # de la police), les lignes trop denses descendent.
+    TAILLES = [(14.0, 18.5), (13.0, 17.5), (12.0, 16.0), (11.0, 15.5),
+               (10.0, 15.0), (9.0, 14.5)]
+    TAILLE_BASE = (12.0, 16.0)
+    # géométrie verticale identique pour toutes les lignes, en px : bandeau
+    # de catégorie de hauteur fixe (demande Thomas : une barre uniforme,
+    # indépendante du nombre de jalons), puis zone des couloirs, marge basse
+    BANDE_TOP = 6    # haut du bandeau de catégorie
+    BANDE_H = 10     # épaisseur du bandeau
+    ZONE_DEBUT = 22  # haut de la zone des couloirs (sous le bandeau)
+    MARGE_BAS = 10   # px réservés en bas de chaque ligne
 
     def besoin_ligne(jalons_s, taille):
         """Place les libellés d'une ligne à la taille donnée ; retourne le
         dictionnaire de ligne correspondant."""
         font, esp = taille
         placements, n_couloirs = placer_jalons(jalons_s, font, esp)
-        h_min = (n_couloirs * esp + MARGE_BAS) / (1 - DEBUT_ZONE)
+        h_min = ZONE_DEBUT + n_couloirs * esp + MARGE_BAS
         return {"font": font, "esp": esp, "placements": placements,
                 "n_couloirs": n_couloirs, "h_min": h_min}
 
@@ -1828,10 +1840,10 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         jalons_s = jalons_par_scope.get(s, [])
         if jalons_s:
             lignes.append({"scope": s, "jalons": jalons_s,
-                           **besoin_ligne(jalons_s, TAILLES[0])})
+                           **besoin_ligne(jalons_s, TAILLE_BASE)})
         else:
-            lignes.append({"scope": s, "jalons": [], "font": TAILLES[0][0],
-                           "esp": TAILLES[0][1], "placements": [], "n_couloirs": 0,
+            lignes.append({"scope": s, "jalons": [], "font": TAILLE_BASE[0],
+                           "esp": TAILLE_BASE[1], "placements": [], "n_couloirs": 0,
                            "h_min": 30.0})
 
     # ajustement global : si la somme des besoins dépasse le cadre, on
@@ -1856,6 +1868,20 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     reste_px = h_dispo - sum(hauteurs)
     for i in sorted(range(len(brutes)), key=lambda i: brutes[i] - hauteurs[i], reverse=True)[:reste_px]:
         hauteurs[i] += 1
+
+    # les lignes qui ont de la marge après répartition remontent leur police
+    # au maximum qui tient dans leur hauteur : le blanc horizontal devient
+    # de la lisibilité (demande Thomas BPCE)
+    for ligne, h in zip(lignes, hauteurs):
+        if not ligne["jalons"]:
+            continue
+        dispo = h - ZONE_DEBUT - MARGE_BAS
+        i_actuel = TAILLES.index((ligne["font"], ligne["esp"]))
+        for i in range(i_actuel - 1, -1, -1):
+            essai = besoin_ligne(ligne["jalons"], TAILLES[i])
+            if essai["n_couloirs"] * essai["esp"] <= dispo:
+                ligne.update(essai)
+                break
 
     qcols = "".join(
         (lambda fond, txt: f'<div class="qcol" style="background:{fond};color:{txt}">'
@@ -1887,15 +1913,15 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         marqueurs = ""
         ligne = lignes[i_s]
         n_couloirs = ligne["n_couloirs"]
-        # centres de couloirs en px, tous sous le bandeau (bas du bandeau à
-        # DEBUT_ZONE de la hauteur), espacés d'au moins l'espacement de la
-        # taille retenue, marge de 9 px en bas ; couloir 0 = le plus proche
-        # du bandeau. Quand la ligne est plus haute que son besoin, les
+        # centres de couloirs en px, tous dans la zone sous le bandeau
+        # (haut de zone à ZONE_DEBUT), espacés d'au moins l'espacement de la
+        # taille retenue, marge basse fixe ; couloir 0 = le plus proche du
+        # bandeau. Quand la ligne est plus haute que son besoin, les
         # couloirs s'écartent : l'espace disponible est utilisé, pas gaspillé
         h_ligne = hauteurs[i_s]
         m = max(n_couloirs, 1)
-        pas = ((1 - DEBUT_ZONE) * h_ligne - MARGE_BAS) / m
-        centres = [DEBUT_ZONE * h_ligne + 8 + (k + 0.5) * pas for k in range(m)]
+        pas = (h_ligne - ZONE_DEBUT - MARGE_BAS) / m
+        centres = [ZONE_DEBUT + (k + 0.5) * pas for k in range(m)]
         centres_pct = [round(c / h_ligne * 100, 2) for c in centres]
         font_ligne = ligne["font"]
         for jd, bord, gauche, k, texte, complet in ligne["placements"]:
@@ -1965,7 +1991,7 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .row {{ display: flex; }}
   .cell-g {{ width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }}
   .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
-  .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
+  .bande {{ position: absolute; top: 6px; height: 10px; border-radius: 2px; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
   .jalon {{ position: absolute; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
 </style>

@@ -35,13 +35,17 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
   les jalons sont affichés sous le bandeau, remonté en haut de ligne.
   Un jalon Asana n'a qu'une date : son échéance (`due_on`) est retenue, repli
   sur la date de début. Les jalons sans date sont ignorés.
+  Barres de catégorie de hauteur uniforme (10 px, indépendante du nombre
+  de jalons) et géométrie verticale en px identique pour toutes les
+  lignes : le blanc horizontal est réutilisé au lieu de s'accumuler.
   Placement sans chevauchement garanti : les largeurs de libellés sont
   estimées caractère par caractère (police + padding + marge de rendu),
   les losanges sont des obstacles pour les libellés du couloir, un jalon
   ne peut pas recouvrir un libellé existant, un jalon daté hors plage
-  affichée est recalé en bord de timeline, et si l'ensemble ne tient pas
-  dans le cadre la police des lignes les plus denses est réduite par
-  paliers (12 → 11 → 10 → 9 px) au lieu de compresser les couloirs.
+  affichée est recalé en bord de timeline. Les lignes qui ont de la marge
+  montent leur police jusqu'à 14 px (le blanc devient de la lisibilité),
+  les lignes trop denses descendent par paliers (12 → 11 → 10 → 9 px)
+  au lieu de compresser les couloirs.
 - Mise à l'échelle de la page : ajustée à la fenêtre du navigateur au
   chargement (aucun recadrage), et boutons A− / A+ pour l'agrandir par
   paliers de 10 % (jusqu'à 160 %) avec ascenseurs natifs : le zoom ne

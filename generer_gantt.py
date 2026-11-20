@@ -1894,8 +1894,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translate(-100%,-50%);"
             else:
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
-            # tige : relie le losange (au niveau du couloir) au bandeau
-            tige = f"top:{DEBUT_ZONE * 100:.0f}%;height:{centre - DEBUT_ZONE * 100:.1f}%;"
             # connecteur libellé -> losange quand le libellé a été repoussé
             # au-delà de l'adjacence normale : l'association reste lisible
             if gauche:
@@ -1910,7 +1908,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                                   f'left:{jd + 0.6:.3f}%;width:{exten:.3f}%;background:{c}"></span>')
             bulle = f' title="{html_esc.escape(complet, quote=True)}"'
             marqueurs += (
-                f'<span class="tige" style="{tige}background:{c};left:{jd:.3f}%"></span>'
                 f'<span class="losange" style="top:{centre:.1f}%;left:{jd:.3f}%;background:{c}"></span>'
                 f'<span class="jalon" style="{style}border-color:{c};font-size:{font_ligne}px"{bulle}>{texte}</span>'
             )
@@ -1969,7 +1966,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .cell-g {{ width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }}
   .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
   .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
-  .tige {{ position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }}
   .lien {{ position: absolute; height: 1px; transform: translateY(-50%); opacity: .55; z-index: 2; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
   .jalon {{ position: absolute; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}

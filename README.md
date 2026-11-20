@@ -26,9 +26,9 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
   fixe pendant le zoom, vue complète de tous les trimestres par défaut.
 - Troisième vue "jalons" : uniquement les bandeaux de catégories (un par
   Scope, aligné sur les trimestres), avec les jalons (sous-tâches dont le
-  nom contient "Prêt à l'usage") affichés en repère daté : losange posé dans
-  un couloir sous le bandeau, relié par une tige, libellé lisible sans
-  survol, texte à droite du losange (à gauche près du bord droit).
+  nom contient "Prêt à l'usage") affichés en repère daté : losange posé
+  sous le bandeau (en haut de ligne), libellé toujours collé à son losange
+  (texte à droite, à gauche près du bord droit), lisible sans survol.
   Le libellé reprend le nom de la tâche parente (numérotation et préfixe
   « NEW - » retirés, tronqué à 25 caractères + « ... »), sans la date : le
   losange est déjà positionné sur la timeline selon la date du jalon. Tous
@@ -38,10 +38,10 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
   Placement sans chevauchement garanti : les largeurs de libellés sont
   estimées caractère par caractère (police + padding + marge de rendu),
   les losanges sont des obstacles pour les libellés du couloir, un jalon
-  daté hors plage affichée est recalé en bord de timeline, et si l'ensemble
-  ne tient pas dans le cadre la police des lignes les plus denses est
-  réduite par paliers (12 → 11 → 10 → 9 px) au lieu de compresser les
-  couloirs.
+  ne peut pas recouvrir un libellé existant, un jalon daté hors plage
+  affichée est recalé en bord de timeline, et si l'ensemble ne tient pas
+  dans le cadre la police des lignes les plus denses est réduite par
+  paliers (12 → 11 → 10 → 9 px) au lieu de compresser les couloirs.
 - Mise à l'échelle de la page : ajustée à la fenêtre du navigateur au
   chargement (aucun recadrage), et boutons A− / A+ pour l'agrandir par
   paliers de 10 % (jusqu'à 160 %) avec ascenseurs natifs : le zoom ne

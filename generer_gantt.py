@@ -1687,10 +1687,12 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         return round((em * font + 10.5) * 1.08 / LARGEUR_TL * 100, 2)
 
     # tailles essayées de la plus lisible à la plus compacte : (police px,
-    # espacement des couloirs px). L'espacement couvre la hauteur réelle du
-    # libellé (police × 1.15 + padding) plus 2 px de marge : aucun
-    # chevauchement vertical possible entre couloirs voisins.
-    TAILLES = [(12.0, 16.5), (11.0, 15.0), (10.0, 13.5), (9.0, 12.5)]
+    # espacement des couloirs px). L'espacement doit couvrir le plus grand
+    # des deux : la hauteur du libellé (police × 1.15 + padding) et la
+    # hauteur du losange tourné (11 px × √2 ≈ 15,6 px + ombre), plus 2 px
+    # de marge : aucun chevauchement vertical possible entre couloirs
+    # voisins, ni libellé sur libellé ni losange sur libellé.
+    TAILLES = [(12.0, 17.5), (11.0, 17.0), (10.0, 16.5), (9.0, 16.0)]
     DEBUT_ZONE = 0.22  # bas du bandeau, en fraction de la hauteur de ligne
     MARGE_BAS = 18  # px réservés en bas de chaque ligne
 
@@ -1711,65 +1713,104 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                 deb_p = i1 + 0.25
         return deb_p
 
-    def couloir_libre(occ, a, b):
-        return all(b < i0 - 0.25 or a > i1 + 0.25 for i0, i1 in occ)
+    def pousser_gauche(occ, fin, largeur):
+        """Plus grande position de bord droit <= fin où l'intervalle tient
+        (repousse vers la gauche tant que la place est prise)."""
+        b = fin
+        for i0, i1 in sorted(occ, reverse=True):
+            if b > i0 - 0.25 and b - largeur < i1 + 0.25:
+                b = i0 - 0.25
+        return b
 
     def placer_jalons(jalons_s, font, espacement):
         """Placement des libellés, couloirs alloués à la demande (tous sous le
-        bandeau). Retourne (placements, n_couloirs) : placement = tuple
-        (jd, bord, gauche, k, texte)."""
-        occupation = [[]]
+        bandeau). Chaque couloir connaît ses propres obstacles : les libellés
+        posés dedans et les losanges des jalons qui y sont rattachés. Un
+        libellé est poussé hors de ces obstacles, et un jalon ne peut pas
+        choisir un couloir où un libellé existant recouvrirait son losange :
+        aucun chevauchement libellé/libellé ni losange/libellé, dans les deux
+        sens. Retourne (placements, n_couloirs) : placement = tuple
+        (jd, bord, gauche, k, texte, complet)."""
+        jds = [min(max(x(j["date"]), 0.3), 99.7) for j in jalons_s]
+        libelles = [[]]   # intervalles occupés par les libellés, par couloir
+        losanges = [[]]   # intervalles occupés par les losanges, par couloir
+
+        def couvre_libelle(intervalles, jd):
+            """Vrai si un losange posé à jd (demi-largeur 0.55) recouvrirait
+            un libellé existant du couloir."""
+            return any(jd - 0.55 < i1 and jd + 0.55 > i0 for i0, i1 in intervalles)
+
         placements = []
-        for j in jalons_s:
-            # un jalon peut être daté avant le début (ou après la fin) de la
-            # plage affichée (plage calée sur les lots, pas sur les jalons) :
-            # on ramène le repère dans le cadre, la date réelle reste dans
-            # l'info-bulle du libellé et le libellé reste dans la timeline
-            jd = min(max(x(j["date"]), 0.3), 99.7)
+        for j, jd in zip(jalons_s, jds):
             texte = j["nom"]
             l_pct = largeur_libelle(texte, font)
             # placement du libellé : à droite du losange de préférence (en le
-            # poussant si un voisin occupe la place), à gauche en secours
-            # (texte se terminant sur le losange). bord droit du cadre :
+            # poussant si un voisin ou un losange du couloir occupe la place),
+            # à gauche en secours (texte se terminant sur le losange, chaîné
+            # vers la gauche si la place est prise). bord droit du cadre :
             # bascule à gauche d'office
             inv = jd + l_pct > 99.5
             choix = None
+            choix_secours = None
+            # un libellé reste de préférence à moins d'~une largeur de libellé
+            # de son losange (lisibilité de l'association) ; à défaut, on
+            # accepte une place propre plus lointaine plutôt que de
+            # chevaucher : la proximité est une préférence, pas un carcan
+            eloignement = l_pct * 1.2
+            propre = (jd - 0.55, jd + 0.55)
             if not inv:
-                deb = jd + 0.4
-                for k, occ in enumerate(occupation):
+                deb = jd + 0.65
+                for k in range(len(libelles)):
+                    if couvre_libelle(libelles[k], jd):
+                        continue  # le losange percerait un libellé du couloir
+                    occ = libelles[k] + losanges[k]
                     deb_p = pousser_droite(occ, deb, l_pct)
                     if deb_p + l_pct <= 100.2:
                         pousse = deb_p - deb
-                        if choix is None or pousse < choix[1]:
-                            choix = (k, deb_p, False)
-                        if pousse == 0:
-                            break
+                        if pousse <= eloignement:
+                            if choix is None or pousse < choix[3]:
+                                choix = (k, deb_p, False, pousse)
+                            if pousse == 0:
+                                break
+                        elif choix_secours is None and pousse <= 3 * l_pct:
+                            # place propre mais lointaine : candidate de secours
+                            choix_secours = (k, deb_p, False, pousse)
             if choix is None:
-                # côté gauche : l'intervalle [fin_g - l, fin_g] doit être libre
-                fin_g = jd - 0.4
-                for k, occ in enumerate(occupation):
-                    if fin_g - l_pct >= 0.2 and couloir_libre(occ, fin_g - l_pct, fin_g):
-                        choix = (k, fin_g, True)
-                        break
+                # côté gauche : le losange du jalon lui-même est exclu des
+                # obstacles (le libellé vient s'y coller)
+                fin_g = jd - 0.65
+                for k in range(len(libelles)):
+                    if couvre_libelle(libelles[k], jd):
+                        continue
+                    occ = [iv for iv in (libelles[k] + losanges[k]) if iv != propre]
+                    b = pousser_gauche(occ, fin_g, l_pct)
+                    if b - l_pct >= 0.2:
+                        ecart = fin_g - b
+                        if ecart <= eloignement:
+                            if choix is None or ecart < choix[3]:
+                                choix = (k, b, True, ecart)
+                        elif choix_secours is None and ecart <= 3 * l_pct:
+                            choix_secours = (k, b, True, ecart)
             if choix is not None:
-                k, bord, gauche = choix
+                k, bord, gauche = choix[0], choix[1], choix[2]
+            elif choix_secours is not None:
+                # aucune place proche : la place propre la plus proche, même
+                # lointaine (le libellé reste rattaché à sa tige et à sa date)
+                k, bord, gauche = choix_secours[0], choix_secours[1], choix_secours[2]
             else:
-                # aucun couloir existant ne convient : un couloir neuf, toujours
-                # vide, accueille le libellé (sa largeur est très inférieure à
-                # celle de la timeline) ; le côté est choisi selon la place
-                # restante. Jamais de superposition imposée.
-                if jd + 0.4 + l_pct <= 100.2:
-                    bord, gauche = jd + 0.4, False
-                else:
-                    bord, gauche = jd - 0.4, True
-                k = len(occupation)
-                occupation.append([])
-            occupation[k].append((bord - l_pct, bord) if gauche else (bord, bord + l_pct))
-            # le losange de ce jalon devient un obstacle du couloir : un
-            # libellé placé plus tard ne pourra pas le traverser
-            occupation[k].append((jd - 0.45, jd + 0.45))
+                # aucun couloir existant ne convient : un couloir neuf, vide,
+                # le libellé s'y pose au plus près de son losange. Jamais de
+                # superposition imposée, sauf physicalité (bord de cadre)
+                k = len(libelles)
+                libelles.append([])
+                losanges.append([])
+                bord, gauche = (jd - 0.65, True) if inv else (jd + 0.65, False)
+                if not gauche and bord + l_pct > 100.2:
+                    bord, gauche = jd - 0.65, True
+            libelles[k].append((bord - l_pct, bord) if gauche else (bord, bord + l_pct))
+            losanges[k].append(propre)
             placements.append((jd, bord, gauche, k, texte, j.get("complet", texte)))
-        return placements, len(occupation)
+        return placements, len(libelles)
 
     lignes = []
     for s in scopes:
@@ -1855,6 +1896,18 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
             # tige : relie le losange (au niveau du couloir) au bandeau
             tige = f"top:{DEBUT_ZONE * 100:.0f}%;height:{centre - DEBUT_ZONE * 100:.1f}%;"
+            # connecteur libellé -> losange quand le libellé a été repoussé
+            # au-delà de l'adjacence normale : l'association reste lisible
+            if gauche:
+                exten = jd - 0.6 - bord
+                if exten > 0.8:
+                    marqueurs += (f'<span class="lien" style="top:{centre:.1f}%;'
+                                  f'left:{bord:.3f}%;width:{exten:.3f}%;background:{c}"></span>')
+            else:
+                exten = bord - (jd + 0.6)
+                if exten > 0.8:
+                    marqueurs += (f'<span class="lien" style="top:{centre:.1f}%;'
+                                  f'left:{jd + 0.6:.3f}%;width:{exten:.3f}%;background:{c}"></span>')
             bulle = f' title="{html_esc.escape(complet, quote=True)}"'
             marqueurs += (
                 f'<span class="tige" style="{tige}background:{c};left:{jd:.3f}%"></span>'
@@ -1917,6 +1970,7 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
   .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
   .tige {{ position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }}
+  .lien {{ position: absolute; height: 1px; transform: translateY(-50%); opacity: .55; z-index: 2; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
   .jalon {{ position: absolute; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
 </style>

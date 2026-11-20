@@ -68,6 +68,7 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
 | `generer_gantt.py` | Extraction API Asana + génération des trois vues HTML |
 | `maj-gantt-depuis-csv.py` | Régénération des HTML depuis un export CSV Asana |
 | `maj-gantt-depuis-json.py` | Régénération d'un HTML depuis un export JSON Asana |
+| `synchro-miroir-sandbox.py` | Synchronise un projet prod vers un projet miroir en sandbox (voir plus bas) |
 | `gantt.sh` | Commande tout-en-un : export JSON + vues -> HTML datés + copies |
 | `interface_gantt.py` | Interface web locale : choix du projet, bouton « Générer en HTML » |
 | `packaging/construire_package_windows.py` | Construit le zip portable Windows (Python embarqué + .bat + notice) |
@@ -110,6 +111,33 @@ Priorité : `--workspace` (ligne de commande) > `ASANA_WORKSPACE` >
 `ASANA_WORKSPACE_<ASANA_ENV>` > sandbox par défaut. L'option `--env prod`
 force l'environnement ponctuellement. L'interface web, elle, liste les projets
 de tous les workspaces accessibles au token : on choisit le bon dans la liste.
+
+### Miroir sandbox (synchro prod -> sandbox)
+
+`synchro-miroir-sandbox.py` recopie un projet production vers un projet
+miroir en sandbox : mêmes lots, mêmes sous-tâches, mêmes dates et statuts,
+mêmes champs personnalisés (dont l'ordre des options du champ Scope, qui
+pilote l'ordre des catégories du Gantt). À lancer depuis un poste qui joint
+l'API production (liste blanche IP) ; le token doit accéder aux deux
+workspaces.
+
+```bash
+python3 synchro-miroir-sandbox.py --liste-projets            # trouver les GIDs
+python3 synchro-miroir-sandbox.py --source <gid prod> --cible <gid miroir>
+python3 synchro-miroir-sandbox.py --source <gid prod> --cible <gid miroir> --apply --rapport rapport.json
+```
+
+- DRY-RUN par défaut : rien n'est écrit sans `--apply` ; `--pause` espace les
+  écritures (0,2 s par défaut) ;
+- rapprochement par « Numéro.Nom Lot » (repli : nom de tâche), sous-tâches
+  par nom ; ce qui manque est créé, ce qui diffère est mis à jour ;
+- options d'enum manquantes créées à la position de l'ordre source ;
+- **jamais de suppression** : les tâches du miroir sans équivalent source
+  sont seulement signalées dans le rapport ;
+- **verrou prod** : le script refuse d'écrire dans le workspace production
+  (`ASANA_WORKSPACE_PROD`) ;
+- les GIDs peuvent être mémorisés dans `config.env` :
+  `ASANA_PROJET_SOURCE=` et `ASANA_PROJET_MIROIR=`.
 
 ### Depuis un fichier JSON de lots
 

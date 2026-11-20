@@ -1770,12 +1770,11 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
             # bascule à gauche d'office
             inv = jd + l_pct > 99.5
             choix = None
-            choix_secours = None
-            # un libellé reste de préférence à moins d'~une largeur de libellé
-            # de son losange (lisibilité de l'association) ; à défaut, on
-            # accepte une place propre plus lointaine plutôt que de
-            # chevaucher : la proximité est une préférence, pas un carcan
-            eloignement = l_pct * 1.2
+            # le libellé doit rester collé à son losange : pas de placement
+            # lointain. Un micro-glissement (<= 0.3 % ~ 5 px, invisible,
+            # jamais de connecteur) est toléré pour absorber l'irrégularité
+            # des dates sans multiplier les couloirs
+            glissement_max = 0.3
             propre = (jd - 0.55, jd + 0.55)
             if not inv:
                 deb = jd + 0.65
@@ -1784,16 +1783,10 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                         continue  # le losange percerait un libellé du couloir
                     occ = libelles[k] + losanges[k]
                     deb_p = pousser_droite(occ, deb, l_pct)
-                    if deb_p + l_pct <= 100.2:
-                        pousse = deb_p - deb
-                        if pousse <= eloignement:
-                            if choix is None or pousse < choix[3]:
-                                choix = (k, deb_p, False, pousse)
-                            if pousse == 0:
-                                break
-                        elif choix_secours is None and pousse <= 3 * l_pct:
-                            # place propre mais lointaine : candidate de secours
-                            choix_secours = (k, deb_p, False, pousse)
+                    if (deb_p - deb <= glissement_max
+                            and deb_p + l_pct <= 100.2):
+                        choix = (k, deb_p, False)
+                        break
             if choix is None:
                 # côté gauche : le losange du jalon lui-même est exclu des
                 # obstacles (le libellé vient s'y coller)
@@ -1803,19 +1796,11 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                         continue
                     occ = [iv for iv in (libelles[k] + losanges[k]) if iv != propre]
                     b = pousser_gauche(occ, fin_g, l_pct)
-                    if b - l_pct >= 0.2:
-                        ecart = fin_g - b
-                        if ecart <= eloignement:
-                            if choix is None or ecart < choix[3]:
-                                choix = (k, b, True, ecart)
-                        elif choix_secours is None and ecart <= 3 * l_pct:
-                            choix_secours = (k, b, True, ecart)
+                    if b - l_pct >= 0.2 and fin_g - b <= glissement_max:
+                        choix = (k, b, True)
+                        break
             if choix is not None:
-                k, bord, gauche = choix[0], choix[1], choix[2]
-            elif choix_secours is not None:
-                # aucune place proche : la place propre la plus proche, même
-                # lointaine (le libellé reste rattaché à sa tige et à sa date)
-                k, bord, gauche = choix_secours[0], choix_secours[1], choix_secours[2]
+                k, bord, gauche = choix
             else:
                 # aucun couloir existant ne convient : un couloir neuf, vide,
                 # le libellé s'y pose au plus près de son losange. Jamais de
@@ -1913,18 +1898,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translate(-100%,-50%);"
             else:
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
-            # connecteur libellé -> losange quand le libellé a été repoussé
-            # au-delà de l'adjacence normale : l'association reste lisible
-            if gauche:
-                exten = jd - 0.6 - bord
-                if exten > 0.8:
-                    marqueurs += (f'<span class="lien" style="top:{centre:.1f}%;'
-                                  f'left:{bord:.3f}%;width:{exten:.3f}%;background:{c}"></span>')
-            else:
-                exten = bord - (jd + 0.6)
-                if exten > 0.8:
-                    marqueurs += (f'<span class="lien" style="top:{centre:.1f}%;'
-                                  f'left:{jd + 0.6:.3f}%;width:{exten:.3f}%;background:{c}"></span>')
             bulle = f' title="{html_esc.escape(complet, quote=True)}"'
             marqueurs += (
                 f'<span class="losange" style="top:{centre:.1f}%;left:{jd:.3f}%;background:{c}"></span>'
@@ -1985,7 +1958,6 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .cell-g {{ width: 150px; flex: none; background: #fff; color: #fff; font-size: 12px; font-weight: bold; display: flex; align-items: center; justify-content: center; position: sticky; left: 0; z-index: 5; border-right: 1px solid #d5d5d5; }}
   .cell-tl {{ flex: 1; min-width: 0; position: relative; overflow: hidden; }}
   .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
-  .lien {{ position: absolute; height: 1px; transform: translateY(-50%); opacity: .55; z-index: 2; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
   .jalon {{ position: absolute; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
 </style>

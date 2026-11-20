@@ -35,6 +35,14 @@ a) Double-clic sur "1-Generer-le-planning.bat" : une fenêtre de commande
 
 b) Choisir le projet dans la liste, ajuster le titre et les vues, puis
    cliquer "Générer en HTML". La génération prend une à deux minutes.
+   Les projets sont préfixés par le nom de leur workspace : choisir celui
+   du bon environnement (sandbox ou production). Le générateur lit Asana,
+   il n'y modifie rien.
+
+   Facultatif : pour imposer un seul workspace dans la liste, décommenter
+   ASANA_ENV dans config.env et y mettre "sandbox" ou "prod" (pas
+   "production"), en renseignant le GID correspondant dans
+   ASANA_WORKSPACE_SANDBOX ou ASANA_WORKSPACE_PROD.
 
 c) Les fichiers du jour apparaissent dans le dossier "sorties" :
    planning-AAAA-MM-JJ.html (synthèse), -jalons.html, -detail.html.

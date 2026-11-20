@@ -12,3 +12,4 @@ __pycache__/
 .DS_Store
 packaging/cache/
 packaging/dist/
+ordre-scopes.txt

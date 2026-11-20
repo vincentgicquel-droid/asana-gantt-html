@@ -26,7 +26,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from generer_gantt import calculer_fins, eclater_refs, generer_html, resoudre_dependances
+from generer_gantt import calculer_fins, charger_ordre_scopes, eclater_refs, generer_html, resoudre_dependances
 
 # colonnes standard du CSV Asana : variantes anglais / français reconnues
 COLONNES = {
@@ -169,7 +169,9 @@ def main():
     lots, orphelines = charger_lots(args.csv)
     nb_deps = sum(len(l["deps"]) for l in lots)
 
-    html = generer_html(lots)
+    # ordre des catégories : fichier local optionnel ordre-scopes.txt
+    # (l'export CSV ne porte pas l'ordre des options du champ Asana)
+    html = generer_html(lots, ordre_scopes=charger_ordre_scopes())
     if args.titre:
         html = html.replace("PLANNING STRATÉGIE D'HÉBERGEMENT : 10 SCOPES", args.titre)
     with open(args.sortie, "w", encoding="utf-8") as fh:

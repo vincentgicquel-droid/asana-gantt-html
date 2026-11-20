@@ -239,6 +239,14 @@ En tête de `generer_gantt.py` :
 - `AFFICHAGE_SCOPES` : noms raccourcis pour la colonne de gauche.
 - `COULEURS_ANNUELLES` / `PALETTE_ANNUELLES` / `NUANCES_TRIMESTRES` : gamme
   de couleur par année et nuances par trimestre de la frise.
+
+### Ordre des catégories avec l'export CSV
+
+L'export CSV ne porte pas l'ordre des options du champ Scope (contrairement
+à l'API et à l'export JSON). Pour retrouver l'ordre Asana sur ce chemin,
+déposer un fichier optionnel `ordre-scopes.txt` à côté des scripts : un nom
+de catégorie par ligne, dans l'ordre souhaité. Les chemins API et JSON
+restent prioritaires (ordre lu directement dans le champ).
 - `CHAMP_SURLIGNAGE` / `CHAMP_SURLIGNAGE_REPLI` : champs Asana qui déclenchent
   le surlignage jaune du nom de lot.
 - `DOSSIER_SORTIE` : dossier par défaut des HTML générés (partage réseau,

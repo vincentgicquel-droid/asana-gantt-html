@@ -587,6 +587,25 @@ def ordonner_scopes(lots, ordre_scopes=None):
     return ordre
 
 
+def charger_ordre_scopes():
+    """Ordre des catégories depuis un fichier local optionnel
+    `ordre-scopes.txt` (un nom par ligne, à côté du script) : utile pour les
+    sources qui ne portent pas l'ordre du champ Asana (export CSV, JSON de
+    lots). Les chemins API et export JSON lisent l'ordre directement dans le
+    champ Scope et restent prioritaires. Fichier absent -> None (repli
+    historique)."""
+    chemin = os.path.join(DOSSIER, "ordre-scopes.txt")
+    if not os.path.isfile(chemin):
+        return None
+    noms = []
+    with open(chemin, encoding="utf-8-sig") as fh:
+        for ligne in fh:
+            nom = ligne.strip()
+            if nom and not nom.startswith("#"):
+                noms.append(nom)
+    return noms or None
+
+
 def axe_temporel(lots):
     """Bornes de l'axe (trimestres) ; plage par défaut si aucune date."""
     debuts = [date.fromisoformat(l["start"]) for l in lots if l["start"]]
@@ -2176,8 +2195,10 @@ def main():
         lots, ordre_scopes = charger_export_json(args.json)
     elif args.source:
         lots = json.load(open(args.source))
+        ordre_scopes = charger_ordre_scopes() or []
     elif args.sans_extract:
         lots = json.load(open(f"{DOSSIER}/lots.json"))
+        ordre_scopes = charger_ordre_scopes() or []
     else:
         if not args.projet:
             sys.exit("Préciser --projet <GID> (API), --json <export> ou --source <fichier>.")

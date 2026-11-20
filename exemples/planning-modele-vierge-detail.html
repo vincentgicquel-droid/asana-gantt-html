@@ -7,8 +7,8 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }
   .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }
-  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  h1 { font-size: 30px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: 24px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
   .zoom { display: flex; gap: 6px; align-items: center; }
   .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
   .zoom .niveau { font-size: 12px; color: #555; width: 40px; text-align: center; }
@@ -83,7 +83,7 @@
     <div class="corps">
       <div class="scroll" id="scroll">
         <div class="inner" id="inner">
-          <div class="entete-tl"><div class="h-g">LOTS &amp; SOUS-TÂCHES</div><div class="qcol" style="background:#1b2a6b"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#2e7d32"><span>T4</span><span>2026</span></div><div class="qcol" style="background:#6a1b9a"><span>T1</span><span>2027</span></div><div class="qcol" style="background:#b36b00"><span>T2</span><span>2027</span></div><div class="qcol" style="background:#00838f"><span>T3</span><span>2027</span></div><div class="qcol" style="background:#ad1457"><span>T4</span><span>2027</span></div></div>
+          <div class="entete-tl"><div class="h-g">LOTS &amp; SOUS-TÂCHES</div><div class="qcol" style="background:#2d3b76;color:#fff"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#515d8e;color:#fff"><span>T4</span><span>2026</span></div><div class="qcol" style="background:#246428;color:#fff"><span>T1</span><span>2027</span></div><div class="qcol" style="background:#2a742e;color:#fff"><span>T2</span><span>2027</span></div><div class="qcol" style="background:#3e8742;color:#fff"><span>T3</span><span>2027</span></div><div class="qcol" style="background:#609c63;color:#fff"><span>T4</span><span>2027</span></div></div>
           <div class="grid"><div class="qsep" style="left:16.758%"></div><div class="qsep q1" style="left:33.515%"></div><div class="qsep" style="left:49.909%"></div><div class="qsep" style="left:66.485%"></div><div class="qsep" style="left:83.242%"></div></div>
           <div class="rowsbox" id="rows"><div class="row groupe-row" style="height:26px"><div class="cell-g" style="background:#455a64;font-size:12.5px" title="Test">Test</div><div class="cell-tl"><span class="bande" style="background:#455a64;left:0.0%;width:99.818%"></span></div></div><div class="row lot-row" id="LTEST1" data-lot="TEST1" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:0.0%;width:16.576%;background:#455a64"></span><span class="lab" style="left:16.876%;border-color:#455a64"> TEST 1 : fin pour commencer</span></div></div><div class="row lot-row" id="LTEST2" data-lot="TEST2" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:16.758%;width:16.575%;background:#455a64"></span><span class="lab" style="left:33.632999999999996%;border-color:#455a64"> TEST 2 : commence après la fin de TEST 1 (FS)</span></div></div><div class="row lot-row" id="LTEST3" data-lot="TEST3" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:33.515%;width:16.211999999999996%;background:#455a64"></span><span class="lab" style="left:50.026999999999994%;border-color:#455a64"> TEST 3 : commence après la fin de TEST 2 (FS)</span></div></div><div class="row lot-row" id="LTEST4" data-lot="TEST4" style="height:18px"><div class="cell-g"></div><div class="cell-tl"><span class="barre" style="left:33.515%;width:66.303%;background:#455a64"></span><span class="lab lab-inv" style="left:33.215%;border-color:#455a64"> TEST 4 : démarre avec TEST 3 (SS) et finit après la fin de TEST 2 (FF)</span></div></div>
             <svg class="svg-fleches" id="fleches"></svg>
@@ -117,7 +117,7 @@
 const DATA = {
  "titre": "PLANNING DE PROJET : DÉTAIL",
  "projet_asana": "",
- "date_generation": "2026-10-30",
+ "date_generation": "2026-11-20",
  "nb_lots": 0,
  "nb_lots_demo": 4,
  "nb_sous_taches": 0,

@@ -26,7 +26,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from generer_gantt import calculer_fins, generer_html, resoudre_dependances
+from generer_gantt import calculer_fins, eclater_refs, generer_html, resoudre_dependances
 
 # colonnes standard du CSV Asana : variantes anglais / français reconnues
 COLONNES = {
@@ -89,12 +89,11 @@ def lire_csv(chemin):
 
 
 def extraire_valeurs(cellule):
-    """Éclate une cellule multi-valeurs Asana (séparateur ', ').
-    Recolle les fragments si la découpe casse un nom (virgule dans un nom)."""
-    v = (cellule or "").strip()
-    if not v:
-        return []
-    return [x.strip() for x in v.split(", ") if x.strip()]
+    """Éclate une cellule multi-valeurs Asana (séparateur ', ' ou ',' sans
+    espace selon l'origine des données) en liste de noms, en recollant les
+    fragments qui ne commencent pas comme une référence de lot (virgule
+    interne à un nom). Logique partagée avec l'API et le JSON : eclater_refs."""
+    return eclater_refs(cellule)
 
 
 def charger_lots(chemin_csv):

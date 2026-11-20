@@ -25,18 +25,27 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
 - Timeline zoomable (boutons ou ctrl/cmd + molette), colonne des catégories
   fixe pendant le zoom, vue complète de tous les trimestres par défaut.
 - Troisième vue "jalons" : uniquement les bandeaux de catégories (un par
-  Scope, alignés sur les trimestres), avec les jalons (sous-tâches dont le
+  Scope, aligné sur les trimestres), avec les jalons (sous-tâches dont le
   nom contient "Prêt à l'usage") affichés en repère daté : losange posé dans
-  un couloir au-dessus ou en dessous du bandeau, relié par une tige, libellé
-  lisible sans survol, texte à droite du losange (à gauche près du bord droit).
+  un couloir sous le bandeau, relié par une tige, libellé lisible sans
+  survol, texte à droite du losange (à gauche près du bord droit).
   Le libellé reprend le nom de la tâche parente (numérotation et préfixe
-  « NEW - » retirés, tronqué à 26 caractères + « ... »), sans la date : le
+  « NEW - » retirés, tronqué à 25 caractères + « ... »), sans la date : le
   losange est déjà positionné sur la timeline selon la date du jalon. Tous
   les jalons sont affichés sous le bandeau, remonté en haut de ligne.
   Un jalon Asana n'a qu'une date : son échéance (`due_on`) est retenue, repli
-  sur la date de début. Les jalons sans date sont ignorés. La hauteur de
-  chaque ligne s'adapte à la densité des jalons de la catégorie (aucun
-  chevauchement de libellés, vérifié sur des données réelles denses).
+  sur la date de début. Les jalons sans date sont ignorés.
+  Placement sans chevauchement garanti : les largeurs de libellés sont
+  estimées caractère par caractère (police + padding + marge de rendu),
+  les losanges sont des obstacles pour les libellés du couloir, un jalon
+  daté hors plage affichée est recalé en bord de timeline, et si l'ensemble
+  ne tient pas dans le cadre la police des lignes les plus denses est
+  réduite par paliers (12 → 11 → 10 → 9 px) au lieu de compresser les
+  couloirs.
+- Mise à l'échelle de la page : ajustée à la fenêtre du navigateur au
+  chargement (aucun recadrage), et boutons A− / A+ pour l'agrandir par
+  paliers de 10 % (jusqu'à 160 %) avec ascenseurs natifs : le zoom ne
+  déforme jamais la mise en page.
 - Date de fin des bandeaux de lot : la due date Asana du lot est utilisée
   quand elle existe et est postérieure à son début (fidèle à Asana) ; sinon
   repli sur le calcul : 1) plus grande fin des sous-tâches, 2) début du
@@ -60,8 +69,10 @@ Toutes les données affichées dans ce dépôt sont des données d'exemple ficti
 | `packaging/construire_package_windows.py` | Construit le zip portable Windows (Python embarqué + .bat + notice) |
 | `prompt-maj-gantt.md` | Guide d'utilisation + prompt de mise à jour pour un chatbot local |
 | `exemples/planning-exemple.html` | Vue synthèse avec données d'exemple fictives |
+| `exemples/planning-exemple-jalons.html` | Vue jalons avec les mêmes données d'exemple |
 | `exemples/planning-exemple-detail.html` | Vue détaillée avec les mêmes données d'exemple |
 | `exemples/planning-modele-vierge.html` | Modèle vierge (0 lot), à remplir via le script CSV |
+| `exemples/planning-modele-vierge-jalons.html` | Modèle vierge, vue jalons |
 | `exemples/planning-modele-vierge-detail.html` | Modèle vierge, vue détaillée |
 | `exemples/exemple-lots.json` | Jeu de données d'exemple (30 lots fictifs) |
 

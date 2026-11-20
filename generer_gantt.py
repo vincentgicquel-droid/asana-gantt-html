@@ -21,6 +21,7 @@ Usage :
 """
 
 import argparse
+import html as html_esc
 import json
 import os
 import re
@@ -101,6 +102,32 @@ NUANCES_TRIMESTRES = [0.80, 0.93, 1.08, 1.24]
 AFFICHAGE_SCOPES = {
     "Communication & Téléphonie": "Téléphonie",
 }
+
+
+def eclater_refs(texte):
+    """Éclate une cellule multi-références ("Blocked By (Dependencies)") en
+    liste de noms de lots. Les séparateurs varient selon l'origine des
+    données : ', ' dans les exports sandbox, ',' sans espace dans les
+    données prod. On découpe sur chaque virgule puis on recolle les
+    fragments qui ne commencent pas comme une référence de lot (numéro
+    "02.1" ou préfixe "NEW - 45") : ce sont des virgules internes à un nom."""
+    v = (texte or "").strip()
+    if not v:
+        return []
+    vals, tampon = [], ""
+    for x in (x.strip() for x in v.split(",")):
+        if not x:
+            continue
+        if tampon and re.match(r"^(?:new\s*-\s*)?\d+(?:\.\d+)*[\.\s]", x, flags=re.I):
+            vals.append(tampon)
+            tampon = x
+        elif tampon:
+            tampon += ", " + x
+        else:
+            tampon = x
+    if tampon:
+        vals.append(tampon)
+    return vals
 
 
 def cfval(task, name):
@@ -266,7 +293,7 @@ def extraire_asana(projet_gid, workspace_gid=None):
                 "start": t.get("start_on") or t.get("due_on"),
                 "fin_asana": t.get("due_on"),
                 "terminee": bool(t.get("completed")),
-                "blocked_by": [x.strip() for x in (cfval(t, "Blocked By (Dependencies)") or "").split(",") if x.strip()],
+                "blocked_by": eclater_refs(cfval(t, "Blocked By (Dependencies)")),
                 "sous_taches": [],
             }
         )
@@ -418,7 +445,7 @@ def charger_export_json(chemin):
             debut = s["debut"]
             sous_taches.append({"nom": s["nom"], "debut": debut, "fin": s["fin"] or debut})
 
-        blocked = [x.strip() for x in (vals.get("blocked_by") or "").split(",") if x.strip()]
+        blocked = eclater_refs(vals.get("blocked_by"))
         # dépendances natives Asana : gids -> noms de tâches
         for g in t.get("deps_gids") or []:
             cible = par_gid.get(g)
@@ -605,7 +632,7 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
 
     # hauteurs entières : les trois zones partagent exactement les mêmes lignes
     h_dispo = 891
-    h_groupe = 26  # ligne de catégorie plus épaisse, comme sur le PowerPoint
+    h_groupe = 24  # ligne de catégorie, comme sur le PowerPoint
     n_lots_aff = max(len(lots), 1)
     h_lot = (h_dispo - len(scopes) * h_groupe) // n_lots_aff
     h_bonus = (h_dispo - len(scopes) * h_groupe) - h_lot * len(lots)  # pixels restants
@@ -656,6 +683,12 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
             lab = re.sub(r"^new\s*-\s*", "", l["label"], flags=re.I)
             m = re.match(r"^(\d+(?:\.\d+)?)[\.\s]+(.*)$", lab)
             num, nom = (m.group(1), m.group(2)) if m else ("", lab)
+            # troncature à 25 caractères (limite demandée pour éviter les
+            # chevauchements) ; le nom
+            # complet reste consultable en info-bulle
+            complet = f"{num} {nom}".strip()
+            bulle = f' title="{html_esc.escape(complet, quote=True)}"'
+            aff = complet if len(complet) <= 25 else complet[:25].rstrip() + "..."
             alerte = aval[l["gid"]] >= SEUIL_ATTENTION
             jaune = bool(l["selection"])
             nb_st = len(l["sous_taches"])
@@ -668,16 +701,23 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
                     f'background:{c}"></span>'
                 )
                 if alerte:
-                    losange = f'<span class="alerte" style="left:{left}%" title="impact fort sur d\'autres lots">✚</span>'
+                    losange = (f'<span class="alerte" style="left:{max(left, 0.35)}%" '
+                               f'title="impact fort sur d\'autres lots">✚</span>')
                 lbl_cls = "lab jaune" if jaune else "lab"
                 st = f'<span class="st-btn">▸ {nb_st}</span>' if nb_st else ""
                 if right < 80:
-                    lab_inline = f'<span class="{lbl_cls}" style="left:{right + 0.3}%;border-color:{c}">{num} {nom}{st}</span>'
+                    lab_inline = f'<span class="{lbl_cls}" style="left:{right + 0.3}%;border-color:{c}"{bulle}>{aff}{st}</span>'
+                elif left > 3:
+                    lab_inline = f'<span class="{lbl_cls} lab-inv" style="left:{left - 0.3}%;border-color:{c}"{bulle}>{aff}{st}</span>'
                 else:
-                    lab_inline = f'<span class="{lbl_cls} lab-inv" style="left:{left - 0.3}%;border-color:{c}">{num} {nom}{st}</span>'
+                    # barre couvrant (quasi) toute la période : le libellé est
+                    # posé au début de la timeline, par-dessus la barre (le
+                    # repli à gauche du début le poussait hors cadre, donc
+                    # invisible)
+                    lab_inline = f'<span class="{lbl_cls}" style="left:0.4%;border-color:{c}"{bulle}>{aff}{st}</span>'
             else:
                 st = f'<span class="st-btn">▸ {nb_st}</span>' if nb_st else ""
-                lab_inline = f'<span class="lab a-dater" style="left:0.4%;border-color:#999">{num} {nom} (à dater){st}</span>'
+                lab_inline = f'<span class="lab a-dater" style="left:0.4%;border-color:#999"{bulle}>{aff} (à dater){st}</span>'
 
             rows.append(
                 f'<div class="row lot-row" data-lot="{l["gid"]}" style="height:{h}px">'
@@ -732,8 +772,14 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
 <title>Planning de projet</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  html, body {{ width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }}
-  .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }}
+  html, body {{ width: 100%; height: 100%; overflow: auto; font-family: Arial, Helvetica, sans-serif; background: #eef0f4; }}
+  body {{ display: flex; }}
+  /* cadre 16:9 logique de 1920x1080 : mis à l'échelle à la fenêtre au
+     chargement, et A−/A+ l'agrandissent par paliers de 10 % (ascenseurs
+     natifs pour se déplacer, jamais de déformation ni de recadrage) */
+  #fenetre {{ margin: auto; overflow: hidden; }}
+  #ecran {{ position: relative; width: 1920px; height: 1080px; transform-origin: top left; }}
+  .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; background: #fff; }}
   .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }}
   h1 {{ font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
   .zoom {{ display: flex; gap: 6px; align-items: center; }}
@@ -769,31 +815,33 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
   .bande {{ position: absolute; top: 25%; bottom: 25%; border-radius: 2px; }}
   .lot-row {{ cursor: pointer; }}
   .lot-row:hover .cell-tl {{ background: #f6f8ff; }}
-  .barre {{ position: absolute; top: 50%; transform: translateY(-50%); height: 3.5px; border-radius: 2px; }}
-  .alerte {{ position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 11px; font-weight: bold; z-index: 3; }}
-  .lab {{ position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }}
+  .barre {{ position: absolute; top: 50%; transform: translateY(-50%); height: 5px; border-radius: 2.5px; }}
+  .alerte {{ position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 12px; font-weight: bold; z-index: 3; }}
+  .lab {{ position: absolute; top: 50%; transform: translateY(-50%); font-size: 10.5px; line-height: 1; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }}
   .lab-inv {{ transform: translate(-100%, -50%); border-left: none; border-right: 2.5px solid; text-align: right; }}
   .lab.jaune {{ background: #f7e733; }}
   .lab.a-dater {{ font-style: italic; color: #777; }}
-  .st-btn {{ font-size: 9px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }}
+  .st-btn {{ font-size: 9.5px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }}
 
-  .panneau {{ position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 12px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }}
-  .panneau h3 {{ font-size: 14px; margin-bottom: 6px; }}
+  .panneau {{ position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 13px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }}
+  .panneau h3 {{ font-size: 15px; margin-bottom: 6px; }}
   .panneau table {{ border-collapse: collapse; width: 100%; margin-top: 6px; }}
-  .panneau td, .panneau th {{ text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 11.5px; }}
-  .panneau th {{ color: #666; font-weight: normal; font-size: 11px; }}
+  .panneau td, .panneau th {{ text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 12.5px; }}
+  .panneau th {{ color: #666; font-weight: normal; font-size: 12px; }}
   .panneau .dep {{ color: #444; }}
   .fermer {{ float: right; cursor: pointer; color: #888; font-size: 16px; }}
 
-  .pied {{ display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: #333; }}
-  .stats {{ border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 13px; border-radius: 4px; }}
-  .stats .petit {{ font-size: 10.5px; color: #888; }}
+  .pied {{ display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #333; }}
+  .stats {{ border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 14px; border-radius: 4px; }}
+  .stats .petit {{ font-size: 11.5px; color: #888; }}
   .legende span {{ display: inline-block; margin-right: 12px; }}
   .legende i {{ display: inline-block; width: 24px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }}
   .legende b {{ color: #e01414; }}
 </style>
 </head>
 <body>
+<div id="fenetre">
+<div id="ecran">
 <div class="page">
   <div class="titre">
     <div style="width:220px"></div>
@@ -802,6 +850,9 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
       <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
       <span class="niveau" id="zniveau">1×</span>
       <button id="zplus" title="zoomer">+</button>
+      <button id="tmoins" title="réduire la taille de la page">A−</button>
+      <span class="niveau" id="tniveau">100 %</span>
+      <button id="tplus" title="agrandir la page (ascenseurs si besoin), sans jamais déformer">A+</button>
     </div>
   </div>
   <div class="gantt">
@@ -824,6 +875,8 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
       <span>▸ n : sous-tâches repliées, cliquer sur un lot pour les consulter</span>    </div>
     {stats}
   </div>
+</div>
+</div>
 </div>
 <script>
 /* ================================================================
@@ -852,6 +905,25 @@ const DATA = {bloc_data};
 
 const parId = {{}};
 DATA.lots.forEach(l => parId[l.id] = l);
+
+/* ---------- échelle de la page : ajustée à la fenêtre ; A−/A+ agrandissent
+   par paliers de 10 % (ascenseurs natifs pour se déplacer, jamais de
+   déformation ni de recadrage) ---------- */
+const ecran = document.getElementById('ecran');
+const fenetre = document.getElementById('fenetre');
+let zoomPage = 1;
+let ECHELLE = 1;
+function ajuster() {{
+  ECHELLE = Math.min(window.innerWidth / 1920, window.innerHeight / 1080) * zoomPage;
+  ecran.style.transform = 'scale(' + ECHELLE + ')';
+  fenetre.style.width = (1920 * ECHELLE) + 'px';
+  fenetre.style.height = (1080 * ECHELLE) + 'px';
+  document.getElementById('tniveau').textContent = Math.round(zoomPage * 100) + ' %';
+}}
+window.addEventListener('resize', ajuster);
+document.getElementById('tplus').addEventListener('click', () => {{ zoomPage = Math.min(1.6, zoomPage + 0.1); ajuster(); }});
+document.getElementById('tmoins').addEventListener('click', () => {{ zoomPage = Math.max(1, zoomPage - 0.1); ajuster(); }});
+ajuster();
 
 /* ---------- zoom : la timeline seule, colonnes fixes ---------- */
 const scroll = document.getElementById('scroll');
@@ -883,7 +955,7 @@ scroll.addEventListener('mousedown', e => {{
   scroll.style.cursor = 'grabbing';
 }});
 window.addEventListener('mousemove', e => {{
-  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x) / ECHELLE;
 }});
 window.addEventListener('mouseup', () => {{ drag = null; scroll.style.cursor = ''; }});
 
@@ -1055,13 +1127,19 @@ def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_proj
                     f'background:{c}"></span>'
                 )
                 if alerte:
-                    losange = f'<span class="alerte" style="left:{left}%" title="impact fort sur d\'autres lots">✚</span>'
+                    losange = (f'<span class="alerte" style="left:{max(left, 0.35)}%" '
+                               f'title="impact fort sur d\'autres lots">✚</span>')
                 lbl_cls = "lab jaune" if jaune else "lab"
                 chev = f'<span class="chev" title="plier / déplier les sous-tâches">▾ {nb_st}</span>' if nb_st else ""
                 if right < 80:
                     lab_inline = f'<span class="{lbl_cls}" style="left:{right + 0.3}%;border-color:{c}">{num} {nom}{chev}</span>'
-                else:
+                elif left > 3:
                     lab_inline = f'<span class="{lbl_cls} lab-inv" style="left:{left - 0.3}%;border-color:{c}">{num} {nom}{chev}</span>'
+                else:
+                    # barre couvrant (quasi) toute la période : libellé au
+                    # début de la timeline (le repli à gauche du début le
+                    # poussait hors cadre, donc invisible)
+                    lab_inline = f'<span class="{lbl_cls}" style="left:0.4%;border-color:{c}">{num} {nom}{chev}</span>'
             else:
                 chev = f'<span class="chev" title="plier / déplier les sous-tâches">▾ {nb_st}</span>' if nb_st else ""
                 lab_inline = f'<span class="lab a-dater" style="left:0.4%;border-color:#999">{num} {nom} (à dater){chev}</span>'
@@ -1540,15 +1618,18 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         """Libellé affiché = nom du lot parent (tâche parent), sans la
         numérotation ni le préfixe éventuel de tâche ajoutée : « NEW -
         02.1.Installation réseaux » devient « Installation réseaux ». Tronqué
-        à 26 caractères + « ... » pour rester compact. Repli sur le nom de la
+        à 25 caractères + « ... » pour rester compact (limite demandée pour
+        éviter les chevauchements).
+        Retourne (libellé tronqué, nom complet). Repli sur le nom de la
         sous-tâche si le lot n'a pas de libellé."""
         t = re.sub(r"\s+", " ", (label_lot or "")).strip()
         t = re.sub(r"^\s*NEW\s*-\s*", "", t, flags=re.I)
         t = re.sub(r"^\s*\d+(?:\.\d+)*\.?\s*", "", t).strip()
         t = t or (nom_sous or "").strip()
-        if len(t) > 26:
-            t = t[:26].rstrip() + "..."
-        return t
+        complet = t
+        if len(t) > 25:
+            t = t[:25].rstrip() + "..."
+        return t, complet
 
     jalons_par_scope = {}
     for l in lots:
@@ -1557,8 +1638,9 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
             # donc la fin en priorité, repli sur le début
             d_j = s.get("fin") or s.get("debut")
             if d_j and est_jalon(s.get("nom", "")):
+                nom, complet = libelle_jalon(l.get("label"), s.get("nom"))
                 jalons_par_scope.setdefault(l["scope"], []).append(
-                    {"nom": libelle_jalon(l.get("label"), s.get("nom")), "date": d_j})
+                    {"nom": nom, "complet": complet, "date": d_j})
     for v in jalons_par_scope.values():
         v.sort(key=lambda j: j["date"])
 
@@ -1590,15 +1672,36 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     h_dispo = 958  # remplit exactement le cadre 16:9 (1080 - titres - en-tête)
     LARGEUR_TL = 1710  # px de timeline au zoom 1x (1920 - marges - colonne gauche)
 
-    def largeur_libelle(texte):
-        # estimation calibrée sur le rendu réel mesuré (Arial 10 px), marge 5 %
-        return round((16 + len(texte) * 4.6) / LARGEUR_TL * 100, 2)
+    # largeur des caractères Arial en fraction d'em (mesure type), pour
+    # estimer la largeur réelle des libellés : les majuscules, "m" et "w"
+    # sont plus larges qu'une moyenne linéaire, les minuscules étroites
+    # ("i", "l", ponctuation) moins. Marge de 8 % par sécurité (écarts de
+    # rendu Windows/Mac, arrondis de zoom).
+    _LARG = [("mwMW", 0.86), ("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 0.68),
+             ("ilj.,;:!|' ", 0.30), ("ft()[]/-", 0.37), ("r", 0.34)]
 
-    # hauteurs de lignes proportionnelles au besoin : les jalons dont les
-    # libellés se chevauchent occupent chacun un couloir (13 px par couloir),
-    # tous sous le bandeau remonté en haut de ligne (12-22 % de la hauteur)
-    ESPACEMENT = 13.0
+    def largeur_libelle(texte, font):
+        em = sum(next((v for k, v in _LARG if ch in k), 0.55) for ch in texte)
+        # glyphes + padding (0 4px) + bordure gauche (2.5px), marge 8 % pour
+        # les écarts de rendu entre systèmes
+        return round((em * font + 10.5) * 1.08 / LARGEUR_TL * 100, 2)
+
+    # tailles essayées de la plus lisible à la plus compacte : (police px,
+    # espacement des couloirs px). L'espacement couvre la hauteur réelle du
+    # libellé (police × 1.15 + padding) plus 2 px de marge : aucun
+    # chevauchement vertical possible entre couloirs voisins.
+    TAILLES = [(12.0, 16.5), (11.0, 15.0), (10.0, 13.5), (9.0, 12.5)]
     DEBUT_ZONE = 0.22  # bas du bandeau, en fraction de la hauteur de ligne
+    MARGE_BAS = 18  # px réservés en bas de chaque ligne
+
+    def besoin_ligne(jalons_s, taille):
+        """Place les libellés d'une ligne à la taille donnée ; retourne le
+        dictionnaire de ligne correspondant."""
+        font, esp = taille
+        placements, n_couloirs = placer_jalons(jalons_s, font, esp)
+        h_min = (n_couloirs * esp + MARGE_BAS) / (1 - DEBUT_ZONE)
+        return {"font": font, "esp": esp, "placements": placements,
+                "n_couloirs": n_couloirs, "h_min": h_min}
 
     def pousser_droite(occ, deb, largeur):
         """Plus petite position >= deb où l'intervalle tient dans le couloir."""
@@ -1611,16 +1714,20 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
     def couloir_libre(occ, a, b):
         return all(b < i0 - 0.25 or a > i1 + 0.25 for i0, i1 in occ)
 
-    def placer_jalons(jalons_s):
+    def placer_jalons(jalons_s, font, espacement):
         """Placement des libellés, couloirs alloués à la demande (tous sous le
         bandeau). Retourne (placements, n_couloirs) : placement = tuple
         (jd, bord, gauche, k, texte)."""
         occupation = [[]]
         placements = []
         for j in jalons_s:
-            jd = x(j["date"])
+            # un jalon peut être daté avant le début (ou après la fin) de la
+            # plage affichée (plage calée sur les lots, pas sur les jalons) :
+            # on ramène le repère dans le cadre, la date réelle reste dans
+            # l'info-bulle du libellé et le libellé reste dans la timeline
+            jd = min(max(x(j["date"]), 0.3), 99.7)
             texte = j["nom"]
-            l_pct = largeur_libelle(texte)
+            l_pct = largeur_libelle(texte, font)
             # placement du libellé : à droite du losange de préférence (en le
             # poussant si un voisin occupe la place), à gauche en secours
             # (texte se terminant sur le losange). bord droit du cadre :
@@ -1647,30 +1754,49 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
             if choix is not None:
                 k, bord, gauche = choix
             else:
-                # aucun couloir existant ne convient : nouveau couloir si
-                # l'intervalle tient dans le cadre, sinon chevauchement
-                # inévitable (couloir le moins rempli)
-                a, b = (jd - 0.4 - l_pct, jd - 0.4) if inv else (jd + 0.4, jd + 0.4 + l_pct)
-                if a >= 0.2 and b <= 100.2:
-                    k = len(occupation)
-                    occupation.append([])
+                # aucun couloir existant ne convient : un couloir neuf, toujours
+                # vide, accueille le libellé (sa largeur est très inférieure à
+                # celle de la timeline) ; le côté est choisi selon la place
+                # restante. Jamais de superposition imposée.
+                if jd + 0.4 + l_pct <= 100.2:
+                    bord, gauche = jd + 0.4, False
                 else:
-                    k = min(range(len(occupation)), key=lambda k: sum(i1 - i0 for i0, i1 in occupation[k]))
-                bord, gauche = (jd - 0.4, True) if inv else (jd + 0.4, False)
+                    bord, gauche = jd - 0.4, True
+                k = len(occupation)
+                occupation.append([])
             occupation[k].append((bord - l_pct, bord) if gauche else (bord, bord + l_pct))
-            placements.append((jd, bord, gauche, k, texte))
+            # le losange de ce jalon devient un obstacle du couloir : un
+            # libellé placé plus tard ne pourra pas le traverser
+            occupation[k].append((jd - 0.45, jd + 0.45))
+            placements.append((jd, bord, gauche, k, texte, j.get("complet", texte)))
         return placements, len(occupation)
 
     lignes = []
     for s in scopes:
         jalons_s = jalons_par_scope.get(s, [])
         if jalons_s:
-            placements, n_couloirs = placer_jalons(jalons_s)
-            h_min = (n_couloirs * ESPACEMENT + 20) / (1 - DEBUT_ZONE)
+            lignes.append({"scope": s, "jalons": jalons_s,
+                           **besoin_ligne(jalons_s, TAILLES[0])})
         else:
-            placements, n_couloirs, h_min = [], 2, 34.0
-        lignes.append({"scope": s, "jalons": jalons_s, "placements": placements,
-                       "n_couloirs": n_couloirs, "h_min": h_min})
+            lignes.append({"scope": s, "jalons": [], "font": TAILLES[0][0],
+                           "esp": TAILLES[0][1], "placements": [], "n_couloirs": 0,
+                           "h_min": 30.0})
+
+    # ajustement global : si la somme des besoins dépasse le cadre, on
+    # compacte d'abord la ligne la plus gourmande (police suivante), jusqu'à
+    # tenir dans h_dispo. Chaque ligne garde au minimum son besoin propre à
+    # sa taille : plus aucune compression aveugle, donc plus de chevauchement
+    def total_besoin():
+        return sum(l["h_min"] for l in lignes)
+
+    while total_besoin() > h_dispo:
+        compactables = [l for l in lignes if l["jalons"] and (l["font"], l["esp"]) != TAILLES[-1]]
+        if not compactables:
+            break  # tout est déjà au plus compact : compression proportionnelle
+        cible = max(compactables, key=lambda l: l["h_min"])
+        i = TAILLES.index((cible["font"], cible["esp"]))
+        cible.update(besoin_ligne(cible["jalons"], TAILLES[i + 1]))
+
     total_min = sum(l["h_min"] for l in lignes)
     # répartition au pixel : part proportionnelle + reste aux plus grandes fractions
     brutes = [l["h_min"] * h_dispo / total_min for l in lignes]
@@ -1710,16 +1836,18 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
         ligne = lignes[i_s]
         n_couloirs = ligne["n_couloirs"]
         # centres de couloirs en px, tous sous le bandeau (bas du bandeau à
-        # DEBUT_ZONE de la hauteur), espacés d'au moins ESPACEMENT, marge de
-        # 9 px en bas ; couloir 0 = le plus proche du bandeau
+        # DEBUT_ZONE de la hauteur), espacés d'au moins l'espacement de la
+        # taille retenue, marge de 9 px en bas ; couloir 0 = le plus proche
+        # du bandeau. Quand la ligne est plus haute que son besoin, les
+        # couloirs s'écartent : l'espace disponible est utilisé, pas gaspillé
         h_ligne = hauteurs[i_s]
         m = max(n_couloirs, 1)
-        pas = ((1 - DEBUT_ZONE) * h_ligne - 20) / m
+        pas = ((1 - DEBUT_ZONE) * h_ligne - MARGE_BAS) / m
         centres = [DEBUT_ZONE * h_ligne + 8 + (k + 0.5) * pas for k in range(m)]
         centres_pct = [round(c / h_ligne * 100, 2) for c in centres]
-        for jd, bord, gauche, k, texte in ligne["placements"]:
+        font_ligne = ligne["font"]
+        for jd, bord, gauche, k, texte, complet in ligne["placements"]:
             nb_jalons += 1
-            l_pct = largeur_libelle(texte)
             centre = centres_pct[k]
             if gauche:
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translate(-100%,-50%);"
@@ -1727,15 +1855,16 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
                 style = f"top:{centre:.1f}%;left:{bord:.3f}%;transform:translateY(-50%);"
             # tige : relie le losange (au niveau du couloir) au bandeau
             tige = f"top:{DEBUT_ZONE * 100:.0f}%;height:{centre - DEBUT_ZONE * 100:.1f}%;"
+            bulle = f' title="{html_esc.escape(complet, quote=True)}"'
             marqueurs += (
                 f'<span class="tige" style="{tige}background:{c};left:{jd:.3f}%"></span>'
                 f'<span class="losange" style="top:{centre:.1f}%;left:{jd:.3f}%;background:{c}"></span>'
-                f'<span class="jalon" style="{style}border-color:{c}">{texte}</span>'
+                f'<span class="jalon" style="{style}border-color:{c};font-size:{font_ligne}px"{bulle}>{texte}</span>'
             )
 
         nom_affiche = AFFICHAGE_SCOPES.get(s, s)
-        font_g = min(12.5, round(138 / (0.58 * max(len(nom_affiche), 1)), 1))
-        font_g = max(font_g, 7.5)
+        font_g = min(13, round(146 / (0.58 * max(len(nom_affiche), 1)), 1))
+        font_g = max(font_g, 8.5)
         rows.append(
             f'<div class="row groupe-row" style="height:{h_ligne}px">'
             f'<div class="cell-g" style="background:{c};font-size:{font_g}px" title="{s}">{nom_affiche}</div>'
@@ -1754,14 +1883,17 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
 <title>Planning jalons</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  html, body {{ width: 100%; height: 100%; overflow: hidden; background: #eef0f4; font-family: Arial, Helvetica, sans-serif; }}
-  /* cadre 16:9 logique de 1920x1080, mis à l'échelle à 100 % du navigateur
-     par le script (marge de sécurité de 10 % sur la hauteur) */
-  #ecran {{ position: absolute; width: 1920px; height: 1080px; transform-origin: top left; }}
+  html, body {{ width: 100%; height: 100%; overflow: auto; background: #eef0f4; font-family: Arial, Helvetica, sans-serif; }}
+  body {{ display: flex; }}
+  /* cadre 16:9 logique de 1920x1080 : mis à l'échelle à la fenêtre au
+     chargement, et A−/A+ l'agrandissent par paliers de 10 % (ascenseurs
+     natifs pour se déplacer, jamais de déformation ni de recadrage) */
+  #fenetre {{ margin: auto; overflow: hidden; }}
+  #ecran {{ position: relative; width: 1920px; height: 1080px; transform-origin: top left; }}
   .page {{ width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; background: #fff; }}
   .titre {{ display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }}
   h1 {{ font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }}
-  .zoom {{ display: flex; gap: 6px; align-items: center; width: 120px; }}
+  .zoom {{ display: flex; gap: 6px; align-items: center; }}
   .zoom button {{ width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }}
   .zoom button:hover {{ background: #eee; }}
   .zoom .niveau {{ font-size: 12px; color: #555; width: 40px; text-align: center; }}
@@ -1786,16 +1918,20 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   .bande {{ position: absolute; top: 12%; bottom: 78%; border-radius: 2px; }}
   .tige {{ position: absolute; width: 1.5px; transform: translateX(-50%); z-index: 2; }}
   .losange {{ position: absolute; top: 50%; width: 11px; height: 11px; transform: translate(-50%, -50%) rotate(45deg); border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 4; }}
-  .jalon {{ position: absolute; font-size: 10px; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
+  .jalon {{ position: absolute; line-height: 1.15; white-space: nowrap; padding: 0.5px 4px; border-left: 2.5px solid; background: #fff; z-index: 3; }}
 </style>
 </head>
 <body>
+<div id="fenetre">
 <div id="ecran">
 <div class="page">
   <div class="titre"><div class="zoom">
     <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
     <span class="niveau" id="zniveau">1×</span>
     <button id="zplus" title="zoomer">+</button>
+    <button id="tmoins" title="réduire la taille de la page">A−</button>
+    <span class="niveau" id="tniveau">100 %</span>
+    <button id="tplus" title="agrandir la page (ascenseurs si besoin), sans jamais déformer">A+</button>
   </div><h1>{titre}</h1>{stats}</div>
   <div class="gantt">
     <div class="corps" id="scroll">
@@ -1808,16 +1944,24 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
   </div>
 </div>
 </div>
+</div>
 <script>
-/* ---------- mise à l'échelle : 100 % du navigateur, 16:9, marge 10 % hauteur ---------- */
+/* ---------- mise à l'échelle : ajustée à la fenêtre ; A−/A+ agrandissent
+   par paliers de 10 % (ascenseurs natifs, jamais de déformation) ---------- */
 const ecran = document.getElementById('ecran');
+const fenetre = document.getElementById('fenetre');
+let zoomPage = 1;
+let ECHELLE = 1;
 function ajuster() {{
-  const s = Math.min(window.innerWidth / 1920, (window.innerHeight * 0.9) / 1080);
-  ecran.style.transform = 'scale(' + s + ')';
-  ecran.style.left = Math.max((window.innerWidth - 1920 * s) / 2, 0) + 'px';
-  ecran.style.top = Math.max((window.innerHeight - 1080 * s) / 2, 0) + 'px';
+  ECHELLE = Math.min(window.innerWidth / 1920, window.innerHeight / 1080) * zoomPage;
+  ecran.style.transform = 'scale(' + ECHELLE + ')';
+  fenetre.style.width = (1920 * ECHELLE) + 'px';
+  fenetre.style.height = (1080 * ECHELLE) + 'px';
+  document.getElementById('tniveau').textContent = Math.round(zoomPage * 100) + ' %';
 }}
 window.addEventListener('resize', ajuster);
+document.getElementById('tplus').addEventListener('click', () => {{ zoomPage = Math.min(1.6, zoomPage + 0.1); ajuster(); }});
+document.getElementById('tmoins').addEventListener('click', () => {{ zoomPage = Math.max(1, zoomPage - 0.1); ajuster(); }});
 ajuster();
 
 /* ---------- zoom : la timeline seule, colonnes fixes ---------- */
@@ -1850,7 +1994,7 @@ scroll.addEventListener('mousedown', e => {{
   scroll.style.cursor = 'grabbing';
 }});
 window.addEventListener('mousemove', e => {{
-  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x) / ECHELLE;
 }});
 window.addEventListener('mouseup', () => {{ drag = null; scroll.style.cursor = ''; }});
 </script>

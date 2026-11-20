@@ -5,10 +5,16 @@
 <title>Planning de projet</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 1920px; height: 1080px; overflow: hidden; font-family: Arial, Helvetica, sans-serif; background: #fff; }
-  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; }
-  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-  h1 { font-size: 33px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
+  html, body { width: 100%; height: 100%; overflow: auto; font-family: Arial, Helvetica, sans-serif; background: #eef0f4; }
+  body { display: flex; }
+  /* cadre 16:9 logique de 1920x1080 : mis à l'échelle à la fenêtre au
+     chargement, et A−/A+ l'agrandissent par paliers de 10 % (ascenseurs
+     natifs pour se déplacer, jamais de déformation ni de recadrage) */
+  #fenetre { margin: auto; overflow: hidden; }
+  #ecran { position: relative; width: 1920px; height: 1080px; transform-origin: top left; }
+  .page { width: 1920px; height: 1080px; padding: 20px 30px 12px; display: flex; flex-direction: column; background: #fff; }
+  .titre { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  h1 { font-size: 26px; letter-spacing: 1px; color: #111; flex: 1; text-align: center; }
   .zoom { display: flex; gap: 6px; align-items: center; }
   .zoom button { width: 32px; height: 32px; font-size: 19px; border: 1px solid #999; background: #fff; border-radius: 4px; cursor: pointer; }
   .zoom button:hover { background: #eee; }
@@ -42,31 +48,33 @@
   .bande { position: absolute; top: 25%; bottom: 25%; border-radius: 2px; }
   .lot-row { cursor: pointer; }
   .lot-row:hover .cell-tl { background: #f6f8ff; }
-  .barre { position: absolute; top: 50%; transform: translateY(-50%); height: 3.5px; border-radius: 2px; }
-  .alerte { position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 11px; font-weight: bold; z-index: 3; }
-  .lab { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10px; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }
+  .barre { position: absolute; top: 50%; transform: translateY(-50%); height: 5px; border-radius: 2.5px; }
+  .alerte { position: absolute; top: 50%; transform: translate(-55%, -50%); color: #e01414; font-size: 12px; font-weight: bold; z-index: 3; }
+  .lab { position: absolute; top: 50%; transform: translateY(-50%); font-size: 10.5px; line-height: 1; white-space: nowrap; padding: 0 3px; border-left: 2.5px solid; background: #fff; z-index: 2; display: inline-flex; align-items: center; gap: 4px; }
   .lab-inv { transform: translate(-100%, -50%); border-left: none; border-right: 2.5px solid; text-align: right; }
   .lab.jaune { background: #f7e733; }
   .lab.a-dater { font-style: italic; color: #777; }
-  .st-btn { font-size: 9px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }
+  .st-btn { font-size: 9.5px; color: #555; background: #ececec; border-radius: 3px; padding: 0 3px; }
 
-  .panneau { position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 12px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }
-  .panneau h3 { font-size: 14px; margin-bottom: 6px; }
+  .panneau { position: absolute; left: 170px; width: 560px; background: #fafbff; border: 1px solid #c9d2f0; border-radius: 4px; z-index: 30; padding: 10px 14px; font-size: 13px; box-shadow: 0 4px 14px rgba(20,20,60,.18); max-height: 430px; overflow: auto; }
+  .panneau h3 { font-size: 15px; margin-bottom: 6px; }
   .panneau table { border-collapse: collapse; width: 100%; margin-top: 6px; }
-  .panneau td, .panneau th { text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 11.5px; }
-  .panneau th { color: #666; font-weight: normal; font-size: 11px; }
+  .panneau td, .panneau th { text-align: left; padding: 2px 10px 2px 0; white-space: nowrap; font-size: 12.5px; }
+  .panneau th { color: #666; font-weight: normal; font-size: 12px; }
   .panneau .dep { color: #444; }
   .fermer { float: right; cursor: pointer; color: #888; font-size: 16px; }
 
-  .pied { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 12.5px; color: #333; }
-  .stats { border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 13px; border-radius: 4px; }
-  .stats .petit { font-size: 10.5px; color: #888; }
+  .pied { display: flex; align-items: flex-start; justify-content: space-between; margin-top: 8px; font-size: 13px; color: #333; }
+  .stats { border: 1px solid #c33; color: #c33; padding: 8px 16px; text-align: center; font-size: 14px; border-radius: 4px; }
+  .stats .petit { font-size: 11.5px; color: #888; }
   .legende span { display: inline-block; margin-right: 12px; }
   .legende i { display: inline-block; width: 24px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .legende b { color: #e01414; }
 </style>
 </head>
 <body>
+<div id="fenetre">
+<div id="ecran">
 <div class="page">
   <div class="titre">
     <div style="width:220px"></div>
@@ -75,13 +83,16 @@
       <button id="zmoins" title="dézoomer (1x = vue complète de tous les trimestres)">−</button>
       <span class="niveau" id="zniveau">1×</span>
       <button id="zplus" title="zoomer">+</button>
+      <button id="tmoins" title="réduire la taille de la page">A−</button>
+      <span class="niveau" id="tniveau">100 %</span>
+      <button id="tplus" title="agrandir la page (ascenseurs si besoin), sans jamais déformer">A+</button>
     </div>
   </div>
   <div class="gantt">
     <div class="corps">
       <div class="scroll" id="scroll">
         <div class="inner" id="inner">
-          <div class="entete-tl"><div class="h-g">LOTS</div><div class="qcol" style="background:#1b2a6b"><span>T1</span><span>2026</span></div><div class="qcol" style="background:#2e7d32"><span>T2</span><span>2026</span></div><div class="qcol" style="background:#6a1b9a"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#b36b00"><span>T4</span><span>2026</span></div></div>
+          <div class="entete-tl"><div class="h-g">LOTS</div><div class="qcol" style="background:#152155;color:#fff"><span>T1</span><span>2026</span></div><div class="qcol" style="background:#192763;color:#fff"><span>T2</span><span>2026</span></div><div class="qcol" style="background:#2d3b76;color:#fff"><span>T3</span><span>2026</span></div><div class="qcol" style="background:#515d8e;color:#fff"><span>T4</span><span>2026</span></div></div>
           <div class="grid"><div class="qsep" style="left:24.658%"></div><div class="qsep" style="left:49.589%"></div><div class="qsep" style="left:74.795%"></div></div>
           <div class="rowsbox" id="rows"></div>
         </div>
@@ -97,6 +108,8 @@
       <span>▸ n : sous-tâches repliées, cliquer sur un lot pour les consulter</span>    </div>
     <div class="stats"><b>0 lots</b> dont 0 datés<br>0 liens de dépendance<br><span class="petit">0 fins de barres estimées</span></div>
   </div>
+</div>
+</div>
 </div>
 <script>
 /* ================================================================
@@ -124,7 +137,7 @@
 const DATA = {
  "titre": "PLANNING DE PROJET",
  "projet_asana": "",
- "date_generation": "2026-10-30",
+ "date_generation": "2026-11-20",
  "nb_lots": 0,
  "nb_lots_dates": 0,
  "nb_lots_fin_estimee": 0,
@@ -135,6 +148,25 @@ const DATA = {
 
 const parId = {};
 DATA.lots.forEach(l => parId[l.id] = l);
+
+/* ---------- échelle de la page : ajustée à la fenêtre ; A−/A+ agrandissent
+   par paliers de 10 % (ascenseurs natifs pour se déplacer, jamais de
+   déformation ni de recadrage) ---------- */
+const ecran = document.getElementById('ecran');
+const fenetre = document.getElementById('fenetre');
+let zoomPage = 1;
+let ECHELLE = 1;
+function ajuster() {
+  ECHELLE = Math.min(window.innerWidth / 1920, window.innerHeight / 1080) * zoomPage;
+  ecran.style.transform = 'scale(' + ECHELLE + ')';
+  fenetre.style.width = (1920 * ECHELLE) + 'px';
+  fenetre.style.height = (1080 * ECHELLE) + 'px';
+  document.getElementById('tniveau').textContent = Math.round(zoomPage * 100) + ' %';
+}
+window.addEventListener('resize', ajuster);
+document.getElementById('tplus').addEventListener('click', () => { zoomPage = Math.min(1.6, zoomPage + 0.1); ajuster(); });
+document.getElementById('tmoins').addEventListener('click', () => { zoomPage = Math.max(1, zoomPage - 0.1); ajuster(); });
+ajuster();
 
 /* ---------- zoom : la timeline seule, colonnes fixes ---------- */
 const scroll = document.getElementById('scroll');
@@ -166,7 +198,7 @@ scroll.addEventListener('mousedown', e => {
   scroll.style.cursor = 'grabbing';
 });
 window.addEventListener('mousemove', e => {
-  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x);
+  if (drag) scroll.scrollLeft = drag.s - (e.clientX - drag.x) / ECHELLE;
 });
 window.addEventListener('mouseup', () => { drag = null; scroll.style.cursor = ''; });
 

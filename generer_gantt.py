@@ -33,7 +33,7 @@ import unicodedata
 import urllib.parse
 import urllib.request
 from collections import Counter
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # fichiers de travail (JSON intermédiaire) à côté du script
 DOSSIER = os.path.dirname(os.path.abspath(__file__))
@@ -587,6 +587,12 @@ def ordonner_scopes(lots, ordre_scopes=None):
     return ordre
 
 
+def horodatage():
+    """Date et heure de génération, affichées dans le pied des vues pour
+    vérifier d'un coup d'œil qu'on regarde la dernière version."""
+    return datetime.now().strftime("%d/%m/%Y à %H:%M")
+
+
 def charger_ordre_scopes():
     """Ordre des catégories depuis un fichier local optionnel
     `ordre-scopes.txt` (un nom par ligne, à côté du script) : utile pour les
@@ -781,7 +787,8 @@ def generer_html(lots, titre="PLANNING DE PROJET", libelle_projet="", ordre_scop
     stats = (
         f'<div class="stats"><b>{data["nb_lots"]} lots</b> dont {data["nb_lots_dates"]} datés'
         f'<br>{data["nb_dependances"]} liens de dépendance'
-        f'<br><span class="petit">{data["nb_lots_fin_estimee"]} fins de barres estimées</span></div>'
+        f'<br><span class="petit">{data["nb_lots_fin_estimee"]} fins de barres estimées</span>'
+        f'<br><span class="petit">Généré le {horodatage()}</span></div>'
     )
 
     html = f"""<!doctype html>
@@ -1353,7 +1360,7 @@ def generer_html_detail(lots, titre="PLANNING DE PROJET : DÉTAIL", libelle_proj
       <span>survolez une flèche : elle s'épaissit et les deux lots reliés sont surlignés</span>
       <span>cliquer sur ▸ n : plier / déplier les sous-tâches</span>
     </div>
-    <div class="stats"><b>{data["nb_lots"]} lots</b> (+{data["nb_lots_demo"]} de démonstration) / {data["nb_sous_taches"]} sous-tâches<br>{data["nb_dependances_lots"]} dépendances + {data["nb_chainages"]} enchaînements</div>
+    <div class="stats"><b>{data["nb_lots"]} lots</b> (+{data["nb_lots_demo"]} de démonstration) / {data["nb_sous_taches"]} sous-tâches<br>{data["nb_dependances_lots"]} dépendances + {data["nb_chainages"]} enchaînements<br><span style="color:#888;font-size:10.5px">Généré le {horodatage()}</span></div>
   </div>
 </div>
 <script>
@@ -1915,7 +1922,8 @@ def generer_html_jalons(lots, titre="PLANNING DE PROJET : JALONS", libelle_proje
 
     stats = (
         f'<div class="stats"><b>{nb_jalons} jalons</b> sur {len(scopes)} catégories'
-        f'<br><span class="petit">jalons = sous-tâches « Prêt à l\'usage », libellé de la tâche parente</span></div>'
+        f'<br><span class="petit">jalons = sous-tâches « Prêt à l\'usage », libellé de la tâche parente</span>'
+        f'<br><span class="petit">Généré le {horodatage()}</span></div>'
     )
 
     html = f"""<!doctype html>
